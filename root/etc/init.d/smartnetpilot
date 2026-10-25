@@ -8,6 +8,11 @@ UCIADD='uci -q add'
 UCIADDLIST='uci -q add_list'
 LOCK=/var/lock/smartnetpilot-boot.lock
 LOCK_TIMEOUT=300
+APPLY_MARKER=/tmp/smartnetpilot.apply
+APPLY_MARKER_MAX_AGE=300
+SYS_CLASS_NET=${SYS_CLASS_NET:-/sys/class/net}
+
+APPLY_FAILED=0
 
 log() {
     echo "smartnetpilot:$1"
@@ -37,7 +42,23 @@ validate_ip() {
 }
 
 validate_interface() {
-    [ -n "$1" ] && [ -d "/sys/class/net/$1" ] && return 0 || return 1
+    [ -n "$1" ] && [ -d "$SYS_CLASS_NET/$1" ] && return 0 || return 1
+}
+
+# 用户在向导里点击“保存并应用”时，由 rpcd 创建该标记。
+# 只有看到这个标记，reload 才会真正改写网络配置。
+consume_apply_request() {
+    local age
+
+    [ -f "$APPLY_MARKER" ] || return 1
+
+    age=$(($(date +%s) - $(stat -c %Y "$APPLY_MARKER" 2>/dev/null || echo 0)))
+    rm -f "$APPLY_MARKER" 2>/dev/null
+
+    [ "$age" -le "$APPLY_MARKER_MAX_AGE" ] && return 0
+
+    log "Ignoring stale apply request (age: ${age}s)"
+    return 1
 }
 
 # 检查锁文件
@@ -86,12 +107,10 @@ setipv6() {
 	           $UCISET network.@device[$bINDEX].ipv6='0'
 	       fi
 	       	nINDEX=$(uci show network | grep -E "@device\[[0-9]+\].name=\'$wan_interface\'" | sed -n 's/.*@device\[\([0-9]*\)\].name.*/\1/p')
-	       [ -n "$nINDEX" ] && $UCIDEL network.@device[$nINDEX]
+	       [ -n "$nINDEX" ] && $UCISET network.@device[$nINDEX].ipv6='0'
             uci -q batch <<EOF
                 delete network.wan6
                 delete dhcp.lan.ra
-                set network.wan.ipv6='0'
-                set network.wan.delegate='0'
                 delete dhcp.lan.dns
                 delete network.globals.ula_prefix
                 delete dhcp.lan.ra_default
@@ -104,6 +123,11 @@ setipv6() {
                 add_list dhcp.wan.ra_flags='none'
                 set network.lan.delegate='0'
 EOF
+            # 旁路由模式下没有 wan 段，不能凭空创建它。
+            if [ -n "$(uci -q get network.wan)" ]; then
+                $UCISET network.wan.ipv6='0'
+                $UCISET network.wan.delegate='0'
+            fi
             ;;
         1) #pppoe
 	       bINDEX=$(uci show network | grep -E "@device\[[0-9]+\].name='br-lan'" | sed -n 's/.*@device\[\([0-9]*\)\].name.*/\1/p')
@@ -111,10 +135,15 @@ EOF
 	           $UCISET network.@device[$bINDEX].ipv6='1'
 	       fi
 	       	nINDEX=$(uci show network | grep -E "@device\[[0-9]+\].name=\'$wan_interface\'" | sed -n 's/.*@device\[\([0-9]*\)\].name.*/\1/p')
-	       [ -n "$nINDEX" ] && $UCIDEL network.@device[$nINDEX]
-	       $UCIADD network device
-	       $UCISET network.@device[-1].ipv6='1'
-	       $UCISET network.@device[-1].name=$wan_interface
+	       if [ -n "$wan_interface" ]; then
+	           if [ -n "$nINDEX" ]; then
+	               $UCISET network.@device[$nINDEX].ipv6='1'
+	           else
+	               $UCIADD network device
+	               $UCISET network.@device[-1].ipv6='1'
+	               $UCISET network.@device[-1].name="$wan_interface"
+	           fi
+	       fi
             uci -q batch <<EOF
                 set dhcp.lan.ra='hybrid'
                 set dhcp.lan.dhcpv6='hybrid'
@@ -145,10 +174,15 @@ EOF
 	           $UCISET network.@device[$bINDEX].ipv6='1'
 	       fi
 	       	nINDEX=$(uci show network | grep -E "@device\[[0-9]+\].name=\'$wan_interface\'" | sed -n 's/.*@device\[\([0-9]*\)\].name.*/\1/p')
-	       [ -n "$nINDEX" ] && $UCIDEL network.@device[$nINDEX]
-	       $UCIADD network device
-	       $UCISET network.@device[-1].ipv6='1'
-	       $UCISET network.@device[-1].name=$wan_interface
+	       if [ -n "$wan_interface" ]; then
+	           if [ -n "$nINDEX" ]; then
+	               $UCISET network.@device[$nINDEX].ipv6='1'
+	           else
+	               $UCIADD network device
+	               $UCISET network.@device[-1].ipv6='1'
+	               $UCISET network.@device[-1].name="$wan_interface"
+	           fi
+	       fi
             uci -q batch <<EOF
                 del dhcp.lan.ra_default
                 del dhcp.lan.ra_slaac
@@ -181,10 +215,15 @@ EOF
 	           $UCISET network.@device[$bINDEX].ipv6='1'
 	       fi
 	       	nINDEX=$(uci show network | grep -E "@device\[[0-9]+\].name=\'$wan_interface\'" | sed -n 's/.*@device\[\([0-9]*\)\].name.*/\1/p')
-	       [ -n "$nINDEX" ] && $UCIDEL network.@device[$nINDEX]
-	       $UCIADD network device
-	       $UCISET network.@device[-1].ipv6='1'
-	       $UCISET network.@device[-1].name=$wan_interface
+	       if [ -n "$wan_interface" ]; then
+	           if [ -n "$nINDEX" ]; then
+	               $UCISET network.@device[$nINDEX].ipv6='1'
+	           else
+	               $UCIADD network device
+	               $UCISET network.@device[-1].ipv6='1'
+	               $UCISET network.@device[-1].name="$wan_interface"
+	           fi
+	       fi
             uci -q batch <<EOF
                 set dhcp.lan.ra='hybrid'
                 set dhcp.lan.dhcpv6='hybrid'
@@ -336,13 +375,109 @@ restore_configs() {
     fi
 }
 
+# 在改动任何 UCI 配置之前先校验。没有明确选择模式时一律拒绝执行，
+# 这样全新的默认配置、安装/升级流程都不可能改动网络。
+preflight_config() {
+    case "$wan_proto" in
+        pppoe)
+            if [ -z "$wan_pppoe_user" ] || [ -z "$wan_pppoe_pass" ]; then
+                log "PPPoE selected but username/password missing; refusing to apply"
+                return 1
+            fi
+            ;;
+        dhcp)
+            case "$dhcp_proto" in
+                static)
+                    if ! validate_ip "$wan_ipaddr" || ! validate_ip "$wan_netmask"; then
+                        log "Static WAN selected but address/netmask invalid; refusing to apply"
+                        return 1
+                    fi
+                    ;;
+                dhcp)
+                    ;;
+                *)
+                    log "Unknown WAN mode '$dhcp_proto'; refusing to apply"
+                    return 1
+                    ;;
+            esac
+            ;;
+        siderouter)
+            case "$lan_proto" in
+                static)
+                    if ! validate_ip "$lan_ipaddr" || ! validate_ip "$lan_netmask"; then
+                        log "Static LAN selected but address/netmask invalid; refusing to apply"
+                        return 1
+                    fi
+                    ;;
+                dhcp)
+                    ;;
+                *)
+                    log "Unknown LAN mode '$lan_proto'; refusing to apply"
+                    return 1
+                    ;;
+            esac
+            ;;
+        *)
+            log "No network mode selected; refusing to apply"
+            return 1
+            ;;
+    esac
+
+    if [ "$setlan" = "1" ] && [ "$wan_proto" != "siderouter" ]; then
+        if ! validate_ip "$lan_ipaddr"; then
+            log "LAN addressing enabled but LAN IPv4 address invalid; refusing to apply"
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
+# 挑选 WAN 口时优先使用用户选择或现有的 network.wan 配置，
+# 绝不猜测 br-lan 的桥接口列表，也不使用 DSA 的 CPU 口 eth0。
+resolve_wan_interface() {
+    local existing candidate
+
+    if [ -n "$wan_interface" ]; then
+        if validate_interface "$wan_interface"; then
+            return 0
+        fi
+        log "Ignoring configured WAN interface '$wan_interface' (not present)"
+        wan_interface=""
+    fi
+
+    existing=$(uci -q get network.wan.device)
+    [ -z "$existing" ] && existing=$(uci -q get network.wan.ifname)
+    if validate_interface "$existing"; then
+        wan_interface="$existing"
+        return 0
+    fi
+
+    if validate_interface "wan"; then
+        wan_interface="wan"
+        return 0
+    fi
+
+    # 传统 swconfig / x86 设备：只有在不存在 DSA lan* 端口时才尝试 eth1/usb0。
+    if ! ls "$SYS_CLASS_NET"/lan[0-9]* >/dev/null 2>&1; then
+        for candidate in eth1 usb0; do
+            if validate_interface "$candidate"; then
+                wan_interface="$candidate"
+                return 0
+            fi
+        done
+    fi
+
+    return 1
+}
+
 configure_network() {
     local cfg=$1
     local wan_proto wan_ipaddr wan_netmask wan_gateway wan_dns wan_pppoe_user wan_pppoe_pass
     local ipv6 wifi_ssid wifi_key old_wifi_ssid old_wifi_key
     local lan_ipaddr lan_netmask lan_gateway lan_dns lan_dhcp wan_interface lan_proto
     local dns_tables synflood https setlan
-    local ifname lannet netname netsum i
+    local ifname i
     local wifi_changed=0
 
     # 获取配置
@@ -372,56 +507,43 @@ configure_network() {
     config_get old_wifi_ssid "$cfg" old_wifi_ssid
     config_get old_wifi_key "$cfg" old_wifi_key
 
+    [ "$APPLY_FAILED" = "1" ] && return 1
+
+    # 前置校验：没有明确模式或必填项不完整时，绝不改动任何配置。
+    if ! preflight_config; then
+        APPLY_FAILED=1
+        return 1
+    fi
+
+    ifname=$(uci -q get network.lan.ifname)
+    [ "x$ifname" = "x" ] && ifname="device" || ifname="ifname"
+
+    if [ "$wan_proto" = "siderouter" ]; then
+        wan_interface=""
+    elif ! resolve_wan_interface; then
+        log "No usable WAN interface found; refusing to apply"
+        APPLY_FAILED=1
+        return 1
+    fi
+
     # 备份当前配置
     local backup_dir=$(backup_configs)
 
-    if [ -z "$wan_proto" ]; then
-        wan_proto=$(uci -q get network.wan.proto)
-        [ -z "$wan_proto" ] && wan_proto="siderouter"
+    if [ "$wan_proto" != "siderouter" ]; then
+        $UCIDEL network.lan.gateway
+        $UCIDEL network.lan.dns
     fi
-    
-    
-    ifname=$(uci -q get network.lan.ifname)
-    [ "x$ifname" = "x" ] && ifname="device" || ifname="ifname"
-    
-    [ -n "$wan_interface" ] || wan_interface=$(uci -q get network.wan.$ifname)
-    
-    $UCIDEL network.lan.gateway
-    $UCIDEL network.lan.dns
     $UCIDEL firewall.@zone[0].masq
 
 
     [ -n "$(uci -q get network.wan)" ] && {
-       $UCIDEL network.wan 
+       $UCIDEL network.wan
        WAN_INDEX=$(uci show firewall | grep -E "@zone\[[0-9]+\].name='wan'" | sed -n 's/.*@zone\[\([0-9]*\)\].name.*/\1/p')
        [ -n "$WAN_INDEX" ] && $UCIDEL firewall.@zone[$WAN_INDEX]
     }
     [ -n "$(uci -q get network.wan6)" ] && $UCIDEL network.wan6
     [ -n "$(uci -q get network.lan6)" ] && $UCIDEL network.lan6
-    
-    netname=$(ls /sys/class/net/ 2>/dev/null | grep -E '^(eth[0-9]+|en[op][0-9]+s[0-9]+|usb[0-9]+|wlan[0-9]+|wl[0-9]+)' | sort)
-    netsum=$(echo "$netname" | wc -l 2>/dev/null || echo 0)
-    
-    if [ "$netsum" -eq 0 ]; then
-        restore_configs "$backup_dir"
-        log "No network interfaces found"
-        return 1
-    elif [ "$netsum" -eq 1 ]; then
-        lannet=$(echo "$netname")
-        wan_interface=$(echo "$netname")
-    elif [ "$netsum" -gt 1 ]; then
-        [ -z "$wan_interface" ] && wan_interface=$(echo "$netname" | grep '^eth' | tail -n 1)
-        [ -z "$wan_interface" ] && wan_interface=$(echo "$netname" | grep -v '^wl' | grep -v '^wlan' | head -n 1)
-        [ -z "$wan_interface" ] && wan_interface=$(echo "$netname" | grep -E '^en[opx][0-9]+' | tail -n 1)
-        lannet=""
-        for eth_interface in $netname; do
-            if [ "$eth_interface" != "$wan_interface" ]; then
-                lannet=$lannet" "${eth_interface##*/}
-            fi
-        done
-        lannet=$(echo "$lannet" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-    fi
-    
+
     if [ -n "$wan_interface" ] && [ "$wan_proto" != "siderouter" ]; then
         $UCISET network.wan=interface
         $UCISET network.wan6=interface
@@ -529,8 +651,8 @@ configure_network() {
                     if [ -n "$lan_gateway" ]; then
                         set_ipv4 network.lan.gateway "$lan_gateway"
                     fi
-                    $UCIDEL network.lan.dns
                     if [ -n "$lan_dns" ]; then
+                        $UCIDEL network.lan.dns
                         for dns in ${lan_dns}; do
                             $UCIADDLIST network.lan.dns="$dns"
                         done
@@ -552,11 +674,7 @@ configure_network() {
                     fi
                     ;;
             esac
-            
-            if [ $netsum -gt 1 ]; then
-                [ -n "$wan_interface" ] && lannet=$lannet" "${wan_interface##*/}
-            fi
-            
+
             $UCISET firewall.@zone[0].masq='1'
             $UCIDEL firewall.@zone[0].network
             $UCIADDLIST firewall.@zone[0].network='lan'
@@ -576,8 +694,7 @@ configure_network() {
             ;;
     esac
 
-    [ "x$ifname" = "xdevice" ] && $UCISET network.@$ifname[0].ports="${lannet}" || $UCISET network.lan.$ifname="${lannet}"
-    if [ -f /etc/config/dockerd ]; then 
+    if [ -f /etc/config/dockerd ]; then
 	     DOCKERINDEX=$(uci show firewall | grep -E "@zone\[[0-9]+\].name='docker'" | sed -n 's/.*@zone\[\([0-9]*\)\].name.*/\1/p')
              [ -n "$DOCKERINDEX" ] && $UCIDEL firewall.@zone[$DOCKERINDEX]
         uci -q batch <<EOF
@@ -691,20 +808,25 @@ COMMIT_EOF
     else
         log "Failed to commit configuration, restoring backup"
         restore_configs "$backup_dir"
+        APPLY_FAILED=1
         return 1
     fi
 }
 
 boot() {
-    XBOOT=1
-    start
+    # 开机不重放：配置在用户点击“保存并应用”时已经写入。
+    return 0
 }
 
 start() {
-    check_lock && exit 0
-    # 启动时跳过
-    [ "x$XBOOT" = "x1" ] && exit 0
-    
+    # 包管理器安装/升级时会调用 start；这里必须保持无操作，
+    # 否则安装一个包就会改写 network/dhcp 并导致断网。
+    return 0
+}
+
+apply_config() {
+    check_lock && return 0
+
     # 检查依赖
     for dep in uci awk grep sed; do
         if ! command -v $dep >/dev/null 2>&1; then
@@ -713,10 +835,30 @@ start() {
         fi
     done
 
+    APPLY_FAILED=0
+
+    if ! uci -q get smartnetpilot.default >/dev/null 2>&1; then
+        log "No smartnetpilot configuration found; nothing to apply"
+        return 1
+    fi
+
     create_lock || return 1
     config_load smartnetpilot
     config_foreach configure_network smartnetpilot
     remove_lock
+
+    [ "$APPLY_FAILED" = "1" ] && return 1
+    return 0
+}
+
+reload() {
+    # ucitrack 会在 smartnetpilot 配置提交后调用 reload。
+    # 只有向导显式请求过 apply 时才真正执行。
+    if consume_apply_request; then
+        apply_config
+    else
+        log "No apply request pending; configuration was not changed"
+    fi
 }
 
 stop() {
@@ -724,7 +866,10 @@ stop() {
 }
 
 restart() {
-    stop
-    sleep 1
-    start
+    remove_lock
+    apply_config
+}
+
+apply() {
+    apply_config
 }

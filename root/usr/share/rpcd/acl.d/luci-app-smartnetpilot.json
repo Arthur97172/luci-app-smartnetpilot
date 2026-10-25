@@ -9,6 +9,9 @@
 			"uci": [ "smartnetpilot", "wireless", "network" ]
 		},
 		"write": {
+			"ubus": {
+				"luci.smartnetpilot": [ "arm_apply" ]
+			},
 			"uci": [ "smartnetpilot" ]
 		}
 	}

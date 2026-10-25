@@ -14,6 +14,12 @@ var callGetIp = rpc.declare({
 	expect: { ip: '' }
 });
 
+var callArmApply = rpc.declare({
+	object: 'luci.smartnetpilot',
+	method: 'arm_apply',
+	expect: { success: false }
+});
+
 var MODES = {
 	pppoe: {
 		title: _('PPPoE Dial-up'),
@@ -794,7 +800,16 @@ return view.extend({
 
 			var proceed = function() {
 				pendingRedirect = plan.redirectTarget;
-				ui.changes.apply(mode == '0' && !plan.unchecked);
+
+				return L.resolveDefault(callArmApply(), { success: false }).then(function(res) {
+					if (!res || res.success !== true) {
+						pendingRedirect = null;
+						self._toast(_('Could not prepare the configuration apply. Please try again.'), 'error');
+						return;
+					}
+
+					ui.changes.apply(mode == '0' && !plan.unchecked);
+				});
 			};
 
 			if (!plan.warnings.length)
@@ -802,9 +817,9 @@ return view.extend({
 
 			return self._confirmApply(plan).then(function(confirmed) {
 				if (confirmed)
-					proceed();
-				else
-					self._toast(_('Apply cancelled.'), 'error');
+					return proceed();
+
+				self._toast(_('Apply cancelled.'), 'error');
 			});
 		}).catch(function(err) {
 			self._applying = false;
