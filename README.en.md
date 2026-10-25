@@ -90,6 +90,12 @@ The built packages end up in `bin/packages/<arch>/base/`.
    confirmation dialog lists what will happen before anything is applied. When
    the management address changes, the page disconnects and then opens the new
    address.
+7. After applying, the device enters a 120-second confirmation window. The page
+   shows a countdown and the new management address. Open the wizard at the new
+   address and click **Keep configuration**; if the new address is unreachable,
+   the previous configuration is restored when the countdown ends (or when you
+   click **Roll back now**). Choose **Apply without confirmation** in the
+   dialog to keep the new settings immediately, with no automatic rollback.
 
 > In side-router mode, turn on **Disable the LAN DHCP server** when the main
 > router already runs one: a network should only have a single DHCP server.
@@ -106,11 +112,30 @@ system actually uses. It does so **only** when you click **Save & Apply**:
 
 - Before committing, the view calls the RPC method `arm_apply`, which creates a
   one-shot request marker at `/tmp/smartnetpilot.apply`.
+- With rollback enabled, `arm_apply` first calls `prepare_apply`, which snapshots
+  the current configuration to `/tmp/smartnetpilot-rollback/backup` and writes a
+  random token to both the state directory and the marker.
 - The ucitrack `reload` hook writes configuration only when that marker exists.
   The marker is deleted as soon as it is consumed, and a marker older than
   300 seconds is ignored.
 - Installation, upgrade (the package manager runs `start`), boot (the `boot`
   hook) and any other configuration commit therefore never touch the network.
+
+The confirmation window (two-phase commit):
+
+- After writing the configuration and restarting the network, `reload` marks the
+  state `pending`, records the deadline and starts a detached timer
+  (`wait_rollback`) that survives a page reload or disconnect.
+- The view polls `apply_status` for the remaining time. **Keep configuration**
+  calls `confirm_apply`, which cancels the timer and keeps the new settings.
+- If the countdown expires unconfirmed, or the user clicks **Roll back now**,
+  the timer calls `rollback_if_pending`, restores the snapshot, commits UCI,
+  reloads services and records `rolledback`.
+- The snapshot lives in `/tmp` and is discarded on reboot, reinstall or upgrade;
+  `boot()` and uci-defaults clear this state as well.
+- A new apply is refused while another one waits for confirmation, and a
+  token-bearing apply with no matching snapshot is refused, so the device is
+  never left with a configuration it cannot recover from.
 
 Checks performed before anything is written:
 
@@ -177,13 +202,22 @@ the current LAN address and to warn about management-address changes.
   guesses a port or overwrites the LAN bridge.
 - Relevant configuration files are backed up before every apply and restored
   if the commit fails.
+- After a successful apply, a 120-second confirmation window restores the
+  pre-apply snapshot (`network`, `firewall`, `dhcp`, `wireless`, `system`,
+  `uhttpd`, `nginx`, `smartnetpilot`) when it is not confirmed, so an
+  unreachable new address cannot strand the device.
+- **Apply without confirmation** skips the countdown and the automatic
+  rollback, taking effect immediately. If the new address is wrong the device
+  may become unreachable and has to be recovered over serial, SSH, TTL or the
+  failsafe mode.
 - IPv4 values are validated before being written; invalid values never reach
   UCI.
 - Changes that affect how you reach the device (management address, LAN DHCP
   role, HTTPS, wireless password) are confirmed before they are applied.
-- When the management address changes or LAN becomes a DHCP client, the apply
-  uses LuCI's unchecked path, so the browser cannot trigger an automatic
-  rollback that would undo the new network configuration.
+- When the management address changes or LAN becomes a DHCP client, the view
+  commits straight to `admin/uci/apply_unchecked`, bypassing LuCI's own
+  post-apply reload. The plugin's 120-second timer owns confirmation and
+  rollback, so a browser disconnect cannot undo the new network configuration.
 - HTTPS uses a locally generated self-signed certificate; browsers warn about
   it on first visit, which is expected. When nginx is installed, the redirect
   is configured through nginx instead.

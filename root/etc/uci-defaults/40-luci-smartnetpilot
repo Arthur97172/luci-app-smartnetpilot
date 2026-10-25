@@ -3,8 +3,11 @@
 chmod +x /etc/init.d/smartnetpilot 2>/dev/null
 [ -x /etc/init.d/smartnetpilot ] && /etc/init.d/smartnetpilot enable
 
-# Installing or upgrading must never apply network settings.
-rm -f /tmp/smartnetpilot.apply
+# Installing or upgrading must never apply network settings. Drop any apply
+# request or rollback state left over from a previous boot.
+rm -f /tmp/smartnetpilot.apply /tmp/smartnetpilot.result
+rm -rf /tmp/smartnetpilot-rollback /tmp/smartnetpilot-rollback.lock \
+    /tmp/smartnetpilot-rollback.rollback
 
 uci -q batch <<-EOF >/dev/null
 	delete ucitrack.@smartnetpilot[-1]

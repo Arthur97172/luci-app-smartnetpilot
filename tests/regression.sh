@@ -10,6 +10,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 INIT="$ROOT/root/etc/init.d/smartnetpilot"
 RPC="$ROOT/root/usr/libexec/rpcd/luci.smartnetpilot"
 JS="$ROOT/htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js"
+ACL="$ROOT/root/usr/share/rpcd/acl.d/luci-app-smartnetpilot.json"
 TMP=$(mktemp -d)
 
 trap 'rm -rf "$TMP"' EXIT
@@ -70,6 +71,13 @@ uci() {
 log() { :; }
 SYS_CLASS_NET="$TMP/net"
 APPLY_MARKER="$TMP/apply.marker"
+CONFIG_DIR="$TMP/config"
+STATE_DIR="$TMP/state"
+RESULT_FILE="$TMP/result"
+
+# Never touch the host when exercising the rollback paths.
+reload_services() { :; }
+start_rollback_waiter() { :; }
 
 # ---------------------------------------------------------------- install/boot
 APPLY_CALLED=0
@@ -365,12 +373,267 @@ else
     ok "refuses to guess eth0 on a DSA device without a wan port"
 fi
 
+# ------------------------------------------------ two-phase apply / rollback
+mkdir -p "$CONFIG_DIR"
+ORIG_NET="config interface 'lan'
+	option ipaddr '192.168.1.1'"
+printf '%s\n' "$ORIG_NET" > "$CONFIG_DIR/network"
+printf "config smartnetpilot 'default'\n" > "$CONFIG_DIR/smartnetpilot"
+
+field() {
+    printf '%s\n' "$1" | sed -n "s/^$2=//p" | head -n 1
+}
+
+reset_rollback_state() {
+    rm -rf "$STATE_DIR" "$STATE_DIR.lock" "$STATE_DIR.rollback"
+    rm -f "$RESULT_FILE" "$APPLY_MARKER"
+    printf '%s\n' "$ORIG_NET" > "$CONFIG_DIR/network"
+}
+
+# A normal apply snapshots the config before touching it.
+reset_rollback_state
+PREP=$(prepare_apply 1 120)
+TOK=$(field "$PREP" token)
+assert_eq "$(field "$PREP" rollback)" 1 "prepare_apply enables rollback by default"
+assert_eq "$(field "$PREP" timeout)" 120 "prepare_apply keeps the requested timeout"
+if [ -n "$TOK" ] && [ -f "$STATE_DIR/backup/network" ]; then
+    ok "prepare_apply snapshots the current configuration"
+else
+    fail "prepare_apply snapshots the current configuration"
+fi
+assert_eq "$(field "$(apply_status)" status)" armed "apply_status reports an armed apply"
+
+# The marker carries the token; reload arms the countdown instead of keeping
+# the configuration unconditionally.
+printf 'token=%s\n' "$TOK" > "$APPLY_MARKER"
+APPLY_CALLED=0
+reload
+assert_eq "$APPLY_CALLED" 1 "reload applies a token-carrying request"
+STATUS=$(apply_status)
+assert_eq "$(field "$STATUS" status)" pending "an unconfirmed apply is pending rollback"
+assert_eq "$(field "$STATUS" token)" "$TOK" "apply_status reports the apply token"
+REMAIN=$(field "$STATUS" remaining)
+if [ "$REMAIN" -gt 0 ] && [ "$REMAIN" -le 120 ]; then
+    ok "apply_status reports the remaining countdown"
+else
+    fail "apply_status reports the remaining countdown (got '$REMAIN')"
+fi
+
+# A second apply cannot overwrite the snapshot of the pending one.
+PREP2=$(prepare_apply 1 120)
+assert_eq "$(field "$PREP2" error)" pending "a pending apply blocks a second arm"
+assert_eq "$(cat "$STATE_DIR/token")" "$TOK" "a pending apply keeps its snapshot"
+
+# Rollback restores the snapshot and reports the outcome.
+printf 'changed\n' > "$CONFIG_DIR/network"
+if rollback_if_pending "$TOK"; then
+    ok "rollback_if_pending restores an unconfirmed apply"
+else
+    fail "rollback_if_pending restores an unconfirmed apply"
+fi
+assert_eq "$(cat "$CONFIG_DIR/network")" "$ORIG_NET" "rollback restores the network config"
+assert_eq "$(field "$(apply_status)" status)" rolledback "apply_status reports the rollback"
+if rollback_if_pending "$TOK"; then
+    fail "rolling back twice is rejected"
+else
+    ok "rolling back twice is rejected"
+fi
+
+# Confirmation keeps the new configuration and disarms the rollback.
+reset_rollback_state
+PREP=$(prepare_apply 1 60)
+TOK=$(field "$PREP" token)
+printf 'token=%s\n' "$TOK" > "$APPLY_MARKER"
+APPLY_CALLED=0
+reload
+if confirm_apply "$TOK"; then
+    ok "confirm_apply keeps the applied configuration"
+else
+    fail "confirm_apply keeps the applied configuration"
+fi
+assert_eq "$(field "$(apply_status)" status)" confirmed "apply_status reports the confirmation"
+if [ -d "$STATE_DIR" ]; then
+    fail "confirmation clears the rollback state"
+else
+    ok "confirmation clears the rollback state"
+fi
+if rollback_if_pending "$TOK"; then
+    fail "a confirmed apply cannot be rolled back"
+else
+    ok "a confirmed apply cannot be rolled back"
+fi
+
+# Unknown tokens are rejected and leave the real state untouched.
+reset_rollback_state
+PREP=$(prepare_apply 1 120)
+TOK=$(field "$PREP" token)
+if confirm_apply bogus-token; then
+    fail "confirmation with a wrong token is rejected"
+else
+    ok "confirmation with a wrong token is rejected"
+fi
+if rollback_if_pending bogus-token; then
+    fail "rollback with a wrong token is rejected"
+else
+    ok "rollback with a wrong token is rejected"
+fi
+assert_eq "$(field "$(apply_status)" status)" armed "a wrong token keeps the apply armed"
+
+# Confirmation may arrive before ucitrack runs reload; the apply must still be
+# kept and must not start a countdown afterwards.
+reset_rollback_state
+PREP=$(prepare_apply 1 120)
+TOK=$(field "$PREP" token)
+printf 'token=%s\n' "$TOK" > "$APPLY_MARKER"
+if confirm_apply "$TOK"; then
+    ok "confirmation is accepted before reload runs"
+else
+    fail "confirmation is accepted before reload runs"
+fi
+assert_eq "$(field "$(apply_status)" status)" confirmed "an early confirmation is recorded"
+APPLY_CALLED=0
+reload
+assert_eq "$APPLY_CALLED" 1 "an early confirmation still applies the configuration"
+assert_eq "$(field "$(apply_status)" status)" confirmed "an early confirmation keeps the configuration"
+if [ -d "$STATE_DIR" ]; then
+    fail "an early confirmation clears the state after applying"
+else
+    ok "an early confirmation clears the state after applying"
+fi
+
+# Force mode applies immediately, without a snapshot or countdown.
+reset_rollback_state
+PREP=$(prepare_apply 0)
+assert_eq "$(field "$PREP" rollback)" 0 "prepare_apply 0 disables rollback"
+assert_eq "$(field "$PREP" token)" "" "force mode has no confirmation token"
+if [ -d "$STATE_DIR" ]; then
+    fail "force mode discards any rollback state"
+else
+    ok "force mode discards any rollback state"
+fi
+printf 'force\n' > "$APPLY_MARKER"
+APPLY_CALLED=0
+reload
+assert_eq "$APPLY_CALLED" 1 "force mode applies the configuration"
+assert_eq "$(field "$(apply_status)" status)" confirmed "force mode leaves the configuration in place"
+
+# The waiter rolls back once the timeout expires.
+reset_rollback_state
+PREP=$(prepare_apply 1 30)
+TOK=$(field "$PREP" token)
+printf 'token=%s\n' "$TOK" > "$APPLY_MARKER"
+APPLY_CALLED=0
+reload
+printf 'changed\n' > "$CONFIG_DIR/network"
+wait_rollback 0 "$TOK"
+assert_eq "$(field "$(apply_status)" status)" rolledback "the timeout waiter rolls back an unconfirmed apply"
+assert_eq "$(cat "$CONFIG_DIR/network")" "$ORIG_NET" "the timeout waiter restores the snapshot"
+
+# A failed apply clears the countdown and reports the failure.
+reset_rollback_state
+PREP=$(prepare_apply 1 120)
+TOK=$(field "$PREP" token)
+printf 'token=%s\n' "$TOK" > "$APPLY_MARKER"
+apply_config() { APPLY_CALLED=1; return 1; }
+APPLY_CALLED=0
+reload
+apply_config() { APPLY_CALLED=1; }
+assert_eq "$(field "$(apply_status)" status)" failed "a failed apply reports the failure"
+if [ -d "$STATE_DIR" ]; then
+    fail "a failed apply clears the rollback state"
+else
+    ok "a failed apply clears the rollback state"
+fi
+
+# Never apply a token-bearing request without a matching snapshot: that
+# would be exactly the unreachable-device case the rollback protects against.
+reset_rollback_state
+printf 'token=deadbeef\n' > "$APPLY_MARKER"
+APPLY_CALLED=0
+reload
+assert_eq "$APPLY_CALLED" 0 "refuses to apply without a rollback snapshot"
+assert_eq "$(field "$(apply_status)" status)" failed "a missing snapshot is reported as failed"
+
+reset_rollback_state
+PREP=$(prepare_apply 1 120)
+TOK=$(field "$PREP" token)
+printf 'token=not-%s\n' "$TOK" > "$APPLY_MARKER"
+APPLY_CALLED=0
+reload
+assert_eq "$APPLY_CALLED" 0 "refuses to apply with a mismatched token"
+assert_eq "$(field "$(apply_status)" status)" failed "a mismatched token is reported as failed"
+
+# A failed commit cancels the apply before reload consumes the marker.
+reset_rollback_state
+PREP=$(prepare_apply 1 120)
+TOK=$(field "$PREP" token)
+printf 'token=%s\n' "$TOK" > "$APPLY_MARKER"
+if cancel_apply "$TOK"; then
+    ok "cancel_apply discards an apply that has not started"
+else
+    fail "cancel_apply discards an apply that has not started"
+fi
+if [ -d "$STATE_DIR" ] || [ -f "$APPLY_MARKER" ]; then
+    fail "cancelling clears the state and the request marker"
+else
+    ok "cancelling clears the state and the request marker"
+fi
+APPLY_CALLED=0
+reload
+assert_eq "$APPLY_CALLED" 0 "a cancelled apply never changes the network"
+assert_eq "$(field "$(apply_status)" status)" idle "a cancelled apply leaves no result"
+
+# Cancelling with a wrong token is rejected.
+reset_rollback_state
+PREP=$(prepare_apply 1 120)
+TOK=$(field "$PREP" token)
+printf 'token=%s\n' "$TOK" > "$APPLY_MARKER"
+if cancel_apply bogus-token; then
+    fail "cancelling with a wrong token is rejected"
+else
+    ok "cancelling with a wrong token is rejected"
+fi
+if [ -d "$STATE_DIR" ] && [ -f "$APPLY_MARKER" ]; then
+    ok "a rejected cancel keeps the apply armed"
+else
+    fail "a rejected cancel keeps the apply armed"
+fi
+
+# Once reload has consumed the marker, cancel must not discard the rollback.
+APPLY_CALLED=0
+reload
+if cancel_apply "$TOK"; then
+    fail "an apply that already started cannot be cancelled"
+else
+    ok "an apply that already started cannot be cancelled"
+fi
+assert_eq "$(field "$(apply_status)" status)" pending "a started apply keeps its rollback"
+rollback_if_pending "$TOK" >/dev/null 2>&1
+
 # --------------------------------------------------------------- static checks
 assert_file_lacks "$INIT" 'network.@device[0].ports' "never rewrites br-lan ports"
 assert_file_lacks "$INIT" 'wan_proto=$(uci' "never infers the mode from network.wan.proto"
 assert_file_contains "$INIT" 'consume_apply_request' "reload is gated by an explicit apply request"
+assert_file_contains "$INIT" 'EXTRA_COMMANDS="prepare_apply' "the rollback actions are registered"
+assert_file_contains "$INIT" 'start_rollback_waiter' "a detached timeout waiter is started"
 assert_file_contains "$RPC" 'arm_apply' "rpcd exposes the apply-request method"
+assert_file_contains "$RPC" 'apply_status' "rpcd exposes the rollback status"
+assert_file_contains "$RPC" 'confirm_apply' "rpcd exposes confirmation"
+assert_file_contains "$RPC" 'rollback_apply' "rpcd exposes manual rollback"
+assert_file_contains "$RPC" 'cancel_apply' "rpcd exposes cancelling an apply"
+assert_file_contains "$ACL" '"confirm_apply"' "the ACL allows confirming an apply"
+assert_file_contains "$ACL" '"cancel_apply"' "the ACL allows cancelling an apply"
+assert_file_contains "$ACL" '"rollback_apply"' "the ACL allows rolling an apply back"
 assert_file_contains "$JS" 'callArmApply' "the view arms an apply before committing"
+assert_file_contains "$JS" 'callApplyStatus' "the view polls the rollback state"
+assert_file_contains "$JS" 'callConfirmApply' "the view can keep a new configuration"
+assert_file_contains "$JS" 'callCancelApply' "the view can cancel an apply that failed to commit"
+assert_file_contains "$JS" 'callRollbackApply' "the view can roll a configuration back"
+assert_file_contains "$JS" 'apply_unchecked' "the view commits without LuCI's auto-reload"
+assert_file_contains "$JS" '_showRollbackModal' "the view warns about an unconfirmed apply"
+assert_file_contains "$JS" 'Apply without confirmation' "the view offers a force apply"
+assert_file_contains "$ROOT/root/etc/uci-defaults/40-luci-smartnetpilot" 'smartnetpilot-rollback' \
+    "install and upgrade drop stale rollback state"
 
 if [ "$FAILS" -ne 0 ]; then
     printf '\n%d check(s) failed\n' "$FAILS"
