@@ -17,10 +17,20 @@ get_lan_ip() {
     echo "$lan_ip"
 }
 
+# The init script only applies settings when this marker exists. The marker
+# is created by an explicit "Save & Apply" click, never by install or boot.
+arm_apply() {
+    : > /tmp/smartnetpilot.apply 2>/dev/null || return 1
+    chmod 600 /tmp/smartnetpilot.apply 2>/dev/null
+    return 0
+}
+
 case "$1" in
 list)
     json_init
     json_add_object "get_ip"
+    json_close_object
+    json_add_object "arm_apply"
     json_close_object
     json_dump
     ;;
@@ -33,6 +43,18 @@ call)
         json_init
         json_add_string "ip" "$lan_ip"
         json_add_boolean "success" 1
+        json_dump
+        ;;
+    arm_apply)
+        read -r input
+        if arm_apply; then
+            success=1
+        else
+            success=0
+        fi
+
+        json_init
+        json_add_boolean "success" "$success"
         json_dump
         ;;
     *)

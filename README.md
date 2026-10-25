@@ -77,9 +77,21 @@ make package/luci-app-smartnetpilot/compile V=s
 前端只把易读的 UCI 选项写入 `/etc/config/smartnetpilot`，例如
 `smartnetpilot.default.wan_proto=pppoe`、`smartnetpilot.default.lan_ipaddr=192.168.2.1`，浏览器本身不执行任何命令。
 
-`/etc/init.d/smartnetpilot` 在应用时（由 ucitrack 触发）读取这些选项，翻译成系统真正使用的配置：
+`/etc/init.d/smartnetpilot` 读取这些选项，翻译成系统真正使用的配置。它**只**在你点击「保存并应用」时执行一次：
 
-- **network**：按模式重建 `wan` / `wan6`（PPPoE、DHCP 或静态地址），旁路由模式下改写 LAN；自动识别物理网口并挑选 WAN 口，单网口设备同一个口同时承担 LAN 与 WAN。
+- 前端在提交前调用 RPC `arm_apply` 创建一次性请求标记 `/tmp/smartnetpilot.apply`，随后才提交配置并触发应用。
+- ucitrack 的 `reload` 只有发现这个标记时才会真正写入配置；标记被读取后立即删除，并且超过 300 秒的残留标记会被忽略。
+- 因此安装、升级（包管理器会调用 `start`）、开机（`boot`）以及任何其他原因导致的配置提交都不会改动网络。
+
+真正写入前的校验：
+
+- **模式**：`wan_proto` 为空或不是 `pppoe` / `dhcp` / `siderouter` 时直接拒绝应用（全新安装的默认配置就是这种状态）。
+- **必填项**：PPPoE 缺账号或密码、静态 WAN / 静态 LAN 的地址或掩码非法时拒绝应用。
+- **WAN 口**：优先使用你指定的端口，其次沿用现有 `network.wan` 的 `device`/`ifname`，再次尝试 DSA 的 `wan` 端口；都不可用时拒绝应用，绝不猜测端口，也不会改写 `br-lan` 的桥接端口列表。
+
+写入内容：
+
+- **network**：按模式重建 `wan` / `wan6`（PPPoE、DHCP 或静态地址），旁路由模式下改写 LAN。
 - **firewall**：重建 WAN 区域和 lan→wan 转发，写入 SYN Flood 开关；检测到 `dockerd` 时补上 Docker 区域与相关转发。
 - **dhcp**：按需关闭 LAN 的 DHCP 服务器，或通过 `dhcp_option 6` 向客户端下发指定 DNS。
 - **wireless**：把 SSID / 密码写入所有 AP 接口和默认 radio，加密方式为 WPA2-PSK。
@@ -89,7 +101,7 @@ make package/luci-app-smartnetpilot/compile V=s
 
 写入 IPv4 之前会校验格式（4 段、每段 0–255），非法值只记录日志并跳过。
 
-开机时 `boot()` 钩子直接返回，不会重新套用向导设置，避免重启后覆盖你后来手动做的调整。
+开机时 `boot()` 钩子直接返回，不会重新套用向导设置，避免重启后覆盖你后来手动做的调整。安装或升级软件包时，包管理器同样会调用 `start()`，该钩子也是空操作，所以安装本插件本身不会改变任何网络配置。
 
 前端通过 RPC `luci.smartnetpilot get_ip` 读取当前 LAN 地址，只用于在页面上显示和管理地址变化提示。
 
@@ -102,6 +114,9 @@ make package/luci-app-smartnetpilot/compile V=s
 
 ## 安全说明
 
+- 安装、升级、开机都不会应用配置；只有向导页面的「保存并应用」会，且需要一次性请求标记。
+- 未选择接入方式或必填项不完整时拒绝应用，不会把默认配置翻译成错误的网络设置。
+- 无法确定可用 WAN 口时拒绝应用，不会猜测端口或覆盖 LAN 桥接。
 - 每次应用前自动备份相关配置，提交失败立即恢复。
 - IPv4 地址先校验再写入，非法值不会被写进 UCI。
 - 会影响访问方式的修改（管理地址、LAN DHCP 角色、HTTPS、无线密码）先确认再应用。

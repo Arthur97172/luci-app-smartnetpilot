@@ -5,7 +5,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: luci-app-smartnetpilot 1.0.0\n"
+"Project-Id-Version: luci-app-smartnetpilot 1.0.1\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-25 12:43+0000\n"
 "PO-Revision-Date: 2026-10-25 13:10+0000\n"
@@ -94,6 +94,9 @@ msgstr "配置 LAN 口地址"
 
 msgid "Continue and apply"
 msgstr "继续并应用"
+
+msgid "Could not prepare the configuration apply. Please try again."
+msgstr "无法准备应用配置，请重试。"
 
 msgid "Could not save the selected mode. %s"
 msgstr "无法保存所选模式。%s"

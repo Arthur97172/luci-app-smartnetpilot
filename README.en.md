@@ -101,14 +101,32 @@ e.g. `smartnetpilot.default.wan_proto=pppoe` or
 `smartnetpilot.default.lan_ipaddr=192.168.2.1`. Nothing is executed by the
 browser.
 
-`/etc/init.d/smartnetpilot` runs when the configuration is applied (triggered
-by ucitrack) and translates those options into the settings the system
-actually uses:
+`/etc/init.d/smartnetpilot` translates those options into the settings the
+system actually uses. It does so **only** when you click **Save & Apply**:
+
+- Before committing, the view calls the RPC method `arm_apply`, which creates a
+  one-shot request marker at `/tmp/smartnetpilot.apply`.
+- The ucitrack `reload` hook writes configuration only when that marker exists.
+  The marker is deleted as soon as it is consumed, and a marker older than
+  300 seconds is ignored.
+- Installation, upgrade (the package manager runs `start`), boot (the `boot`
+  hook) and any other configuration commit therefore never touch the network.
+
+Checks performed before anything is written:
+
+- **Mode**: an empty `wan_proto`, or one that is not `pppoe` / `dhcp` /
+  `siderouter`, is rejected — which is the state of a fresh install.
+- **Required fields**: missing PPPoE credentials or an invalid static WAN/LAN
+  address or netmask rejects the whole apply.
+- **WAN port**: the explicitly chosen port wins, then the existing
+  `network.wan` `device`/`ifname`, then the DSA `wan` port. If none is usable
+  the apply is refused; it never guesses a port or rewrites the `br-lan` bridge
+  port list.
+
+What gets written:
 
 - **network**: rebuilds `wan` / `wan6` for the chosen mode (PPPoE, DHCP or
-  static), or rewrites LAN in side-router mode; physical ports are detected
-  automatically and the WAN port is chosen for you, with single-port devices
-  using the same port for LAN and WAN.
+  static), or rewrites LAN in side-router mode.
 - **firewall**: recreates the WAN zone and the lan→wan forwarding, applies the
   SYN-flood switch, and adds Docker zones and forwardings when `dockerd` is
   present.
@@ -130,7 +148,9 @@ Every IPv4 value is validated (four octets, each 0–255) before it is written;
 invalid values are logged and skipped.
 
 The `boot()` hook returns immediately, so a reboot never re-applies the
-wizard's settings and cannot overwrite changes you made later by hand.
+wizard's settings and cannot overwrite changes you made later by hand. The
+package manager calls `start()` on install or upgrade; that hook is a no-op
+too, so installing the plugin by itself never changes the network.
 
 The frontend calls the RPC method `luci.smartnetpilot get_ip` only to display
 the current LAN address and to warn about management-address changes.
@@ -148,6 +168,13 @@ the current LAN address and to warn about management-address changes.
 
 ## Safety notes
 
+- Installing, upgrading and booting never apply configuration; only **Save &
+  Apply** in the wizard does, and it requires a one-shot request marker.
+- An apply is refused when no access mode was chosen or required fields are
+  missing, so a fresh default config cannot be translated into broken network
+  settings.
+- An apply is refused when no usable WAN port can be determined; the code never
+  guesses a port or overwrites the LAN bridge.
 - Relevant configuration files are backed up before every apply and restored
   if the commit fails.
 - IPv4 values are validated before being written; invalid values never reach

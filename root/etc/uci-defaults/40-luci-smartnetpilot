@@ -3,12 +3,20 @@
 chmod +x /etc/init.d/smartnetpilot 2>/dev/null
 [ -x /etc/init.d/smartnetpilot ] && /etc/init.d/smartnetpilot enable
 
+# Installing or upgrading must never apply network settings.
+rm -f /tmp/smartnetpilot.apply
+
 uci -q batch <<-EOF >/dev/null
 	delete ucitrack.@smartnetpilot[-1]
 	add ucitrack smartnetpilot
 	set ucitrack.@smartnetpilot[-1].init=smartnetpilot
 	commit ucitrack
 EOF
+
+# procd only reads /usr/share/ucitrack/*.json when the ucitrack service
+# starts. Without this restart, a freshly installed package would not react
+# to "Save & Apply" until the next reboot.
+[ -x /etc/init.d/ucitrack ] && /etc/init.d/ucitrack restart >/dev/null 2>&1
 
 rm -f /tmp/luci-indexcache
 
