@@ -1,0 +1,15 @@
+{
+	"luci-app-smartnetpilot": {
+		"description": "Grant access to the Smart NetPilot network setup wizard",
+		"read": {
+			"ubus": {
+				"luci.smartnetpilot": [ "*" ],
+				"luci-rpc": [ "getNetworkDevices" ]
+			},
+			"uci": [ "smartnetpilot", "wireless", "network" ]
+		},
+		"write": {
+			"uci": [ "smartnetpilot" ]
+		}
+	}
+}

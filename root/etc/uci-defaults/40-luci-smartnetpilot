@@ -1,0 +1,15 @@
+#!/bin/sh
+
+chmod +x /etc/init.d/smartnetpilot 2>/dev/null
+[ -x /etc/init.d/smartnetpilot ] && /etc/init.d/smartnetpilot enable
+
+uci -q batch <<-EOF >/dev/null
+	delete ucitrack.@smartnetpilot[-1]
+	add ucitrack smartnetpilot
+	set ucitrack.@smartnetpilot[-1].init=smartnetpilot
+	commit ucitrack
+EOF
+
+rm -f /tmp/luci-indexcache
+
+exit 0

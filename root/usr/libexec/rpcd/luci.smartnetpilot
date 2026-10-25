@@ -1,0 +1,46 @@
+#!/bin/sh
+
+# Smart NetPilot RPC helper.
+
+. /usr/share/libubox/jshn.sh
+
+get_lan_ip() {
+    local lan_ip
+
+    lan_ip=$(ip -4 addr show br-lan 2>/dev/null | awk '/inet / { sub(/\/.*/, "", $2); print $2; exit }')
+
+    if [ -z "$lan_ip" ]; then
+        lan_ip=$(ubus call network.interface.lan status 2>/dev/null |
+            jsonfilter -e '@["ipv4-address"][0].address' 2>/dev/null)
+    fi
+
+    echo "$lan_ip"
+}
+
+case "$1" in
+list)
+    json_init
+    json_add_object "get_ip"
+    json_close_object
+    json_dump
+    ;;
+call)
+    case "$2" in
+    get_ip)
+        read -r input
+        lan_ip=$(get_lan_ip)
+
+        json_init
+        json_add_string "ip" "$lan_ip"
+        json_add_boolean "success" 1
+        json_dump
+        ;;
+    *)
+        echo '{"error":"Method not found"}'
+        ;;
+    esac
+    ;;
+*)
+    echo '{"error":"Invalid action"}'
+    ;;
+esac
