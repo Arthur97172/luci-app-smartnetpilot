@@ -12,7 +12,25 @@ APPLY_MARKER=/tmp/smartnetpilot.apply
 APPLY_MARKER_MAX_AGE=300
 SYS_CLASS_NET=${SYS_CLASS_NET:-/sys/class/net}
 
+# 配置回滚状态（两阶段提交）。快照只放在 /tmp，重启后自动失效。
+CONFIG_DIR=${CONFIG_DIR:-/etc/config}
+STATE_DIR=${STATE_DIR:-/tmp/smartnetpilot-rollback}
+RESULT_FILE=${RESULT_FILE:-/tmp/smartnetpilot.result}
+ROLLBACK_TIMEOUT_DEFAULT=120
+ROLLBACK_TIMEOUT_MIN=30
+ROLLBACK_TIMEOUT_MAX=600
+ROLLBACK_CONFIGS="network firewall dhcp wireless system uhttpd nginx smartnetpilot"
+
+EXTRA_COMMANDS="prepare_apply apply_status confirm_apply cancel_apply rollback_if_pending wait_rollback"
+EXTRA_HELP="	prepare_apply <rollback> <timeout>	Snapshot the current configuration before applying
+	apply_status				Report the pending rollback state
+	confirm_apply <token>			Keep the applied configuration
+	cancel_apply <token>			Discard an apply that has not started yet
+	rollback_if_pending <token>		Restore the snapshot of an unconfirmed apply
+	wait_rollback <seconds> <token>		Wait for the deadline, then restore if unconfirmed"
+
 APPLY_FAILED=0
+APPLY_TOKEN=""
 
 log() {
     echo "smartnetpilot:$1"
@@ -47,18 +65,253 @@ validate_interface() {
 
 # 用户在向导里点击“保存并应用”时，由 rpcd 创建该标记。
 # 只有看到这个标记，reload 才会真正改写网络配置。
+#
+# 标记内容为空表示“直接应用、不启用回滚”（旧版行为或命令行触发）；
+# 内容为 token=<uuid> 表示应用后必须在超时前确认，否则自动回滚。
 consume_apply_request() {
-    local age
+    local age content
 
+    APPLY_TOKEN=""
     [ -f "$APPLY_MARKER" ] || return 1
 
     age=$(($(date +%s) - $(stat -c %Y "$APPLY_MARKER" 2>/dev/null || echo 0)))
+    content=$(cat "$APPLY_MARKER" 2>/dev/null)
     rm -f "$APPLY_MARKER" 2>/dev/null
 
-    [ "$age" -le "$APPLY_MARKER_MAX_AGE" ] && return 0
+    if [ "$age" -gt "$APPLY_MARKER_MAX_AGE" ]; then
+        log "Ignoring stale apply request (age: ${age}s)"
+        return 1
+    fi
 
-    log "Ignoring stale apply request (age: ${age}s)"
+    case "$content" in
+        token=*) APPLY_TOKEN="${content#token=}" ;;
+        *)       APPLY_TOKEN="" ;;
+    esac
+
+    return 0
+}
+
+new_token() {
+    local token=""
+
+    if [ -r /proc/sys/kernel/random/uuid ]; then
+        token=$(cat /proc/sys/kernel/random/uuid 2>/dev/null | tr -d '\r\n' | tr -cd 'A-Za-z0-9-')
+    fi
+
+    [ -n "$token" ] || token="snp-$(date +%s)-$$"
+    echo "$token"
+}
+
+clamp_timeout() {
+    local value="$1"
+
+    case "$value" in
+        ''|*[!0-9]*) value=$ROLLBACK_TIMEOUT_DEFAULT ;;
+    esac
+
+    [ "$value" -lt "$ROLLBACK_TIMEOUT_MIN" ] && value=$ROLLBACK_TIMEOUT_MIN
+    [ "$value" -gt "$ROLLBACK_TIMEOUT_MAX" ] && value=$ROLLBACK_TIMEOUT_MAX
+
+    echo "$value"
+}
+
+state_lock() {
+    local age
+
+    mkdir "$STATE_DIR.lock" 2>/dev/null && return 0
+
+    age=$(($(date +%s) - $(stat -c %Y "$STATE_DIR.lock" 2>/dev/null || echo 0)))
+    if [ "$age" -gt 60 ]; then
+        rm -rf "$STATE_DIR.lock" 2>/dev/null
+        mkdir "$STATE_DIR.lock" 2>/dev/null && return 0
+    fi
+
     return 1
+}
+
+state_unlock() {
+    rm -rf "$STATE_DIR.lock" 2>/dev/null
+}
+
+save_configs() {
+    local dir="$1"
+    local config
+
+    mkdir -p "$dir" 2>/dev/null || return 1
+    chmod 700 "$dir" 2>/dev/null
+
+    for config in $ROLLBACK_CONFIGS; do
+        [ -f "$CONFIG_DIR/$config" ] && cp "$CONFIG_DIR/$config" "$dir/" 2>/dev/null
+    done
+
+    # 快照可能包含 PPPoE 密码和无线密钥，只允许 root 读取。
+    chmod 600 "$dir"/* 2>/dev/null
+
+    return 0
+}
+
+# 在改动配置之前保存快照。已有未确认的快照时保留最原始的那一份，
+# 这样连续多次应用也总能回到用户最初确认过的状态。
+prepare_apply() {
+    local rollback="${1:-1}"
+    local timeout token
+
+    case "$rollback" in
+        0|false|no|off) rollback=0 ;;
+        *) rollback=1 ;;
+    esac
+    timeout=$(clamp_timeout "${2:-$ROLLBACK_TIMEOUT_DEFAULT}")
+
+    state_lock || {
+        log "Could not lock the rollback state"
+        return 1
+    }
+
+    # 异常中断可能留下未完成的回滚目录；过期的目录不应永久挡住新的应用。
+    if [ -d "$STATE_DIR.rollback" ]; then
+        local age=$(($(date +%s) - $(stat -c %Y "$STATE_DIR.rollback" 2>/dev/null || echo 0)))
+        [ "$age" -gt 300 ] && rm -rf "$STATE_DIR.rollback" 2>/dev/null
+    fi
+
+    # 上一次应用还在等待确认，或正在回滚时，不能把它的快照覆盖掉。
+    if [ -d "$STATE_DIR.rollback" ] ||
+       [ "$(cat "$STATE_DIR/status" 2>/dev/null)" = "pending" ]; then
+        state_unlock
+        log "Another apply is still in progress"
+        printf 'error=pending\n'
+        return 1
+    fi
+
+    if [ "$rollback" = "1" ]; then
+        token=$(new_token)
+
+        if [ ! -d "$STATE_DIR/backup" ] || [ ! -f "$STATE_DIR/token" ]; then
+            rm -rf "$STATE_DIR"
+            if ! save_configs "$STATE_DIR/backup"; then
+                rm -rf "$STATE_DIR"
+                state_unlock
+                log "Could not create the rollback snapshot"
+                return 1
+            fi
+            chmod 700 "$STATE_DIR" 2>/dev/null
+        fi
+
+        printf '%s\n' "$token" > "$STATE_DIR/token"
+        printf '%s\n' "$timeout" > "$STATE_DIR/timeout"
+        printf 'armed\n' > "$STATE_DIR/status"
+        rm -f "$STATE_DIR/deadline" "$RESULT_FILE" 2>/dev/null
+    else
+        rm -rf "$STATE_DIR" 2>/dev/null
+        rm -f "$RESULT_FILE" 2>/dev/null
+        token=""
+    fi
+
+    state_unlock
+
+    printf 'token=%s\n' "$token"
+    printf 'timeout=%s\n' "$timeout"
+    printf 'rollback=%s\n' "$rollback"
+    return 0
+}
+
+apply_status() {
+    local token=""
+    local status="idle"
+    local timeout=0
+    local remaining=0
+    local deadline=0
+    local now
+
+    if [ -d "$STATE_DIR" ] && [ -f "$STATE_DIR/token" ]; then
+        token=$(cat "$STATE_DIR/token" 2>/dev/null)
+        status=$(cat "$STATE_DIR/status" 2>/dev/null)
+        [ -n "$status" ] || status="armed"
+        timeout=$(cat "$STATE_DIR/timeout" 2>/dev/null)
+
+        if [ "$status" = "pending" ]; then
+            deadline=$(cat "$STATE_DIR/deadline" 2>/dev/null)
+            case "$deadline" in ''|*[!0-9]*) deadline=0 ;; esac
+            now=$(date +%s)
+            remaining=$((deadline - now))
+            [ "$remaining" -lt 0 ] && remaining=0
+        fi
+    elif [ -d "$STATE_DIR.rollback" ]; then
+        # 回滚正在进行：状态目录已被原子地移走，快照正在写回。
+        status="rollingback"
+        token=$(cat "$STATE_DIR.rollback/token" 2>/dev/null)
+    elif [ -f "$RESULT_FILE" ]; then
+        status=$(sed -n 's/^result=//p' "$RESULT_FILE" 2>/dev/null | head -n 1)
+        token=$(sed -n 's/^token=//p' "$RESULT_FILE" 2>/dev/null | head -n 1)
+        timeout=$(sed -n 's/^timeout=//p' "$RESULT_FILE" 2>/dev/null | head -n 1)
+        [ -n "$status" ] || status="idle"
+    fi
+
+    case "$timeout" in ''|*[!0-9]*) timeout=0 ;; esac
+    case "$remaining" in ''|*[!0-9]*) remaining=0 ;; esac
+
+    printf 'status=%s\n' "$status"
+    printf 'token=%s\n' "$token"
+    printf 'remaining=%s\n' "$remaining"
+    printf 'timeout=%s\n' "$timeout"
+}
+
+# 用户确认新配置：结束倒计时，保留已经生效的配置。
+confirm_apply() {
+    local token="$1"
+    local status
+
+    [ -n "$token" ] || return 1
+
+    state_lock || return 1
+
+    if [ ! -f "$STATE_DIR/token" ] || [ "$(cat "$STATE_DIR/token" 2>/dev/null)" != "$token" ]; then
+        state_unlock
+        log "No matching rollback state for this confirmation"
+        return 1
+    fi
+
+    status=$(cat "$STATE_DIR/status" 2>/dev/null)
+
+    if [ "$status" = "armed" ]; then
+        # 页面在 ucitrack 触发 reload 之前就确认了：记下来，等 reload 应用后
+        # 直接保留配置，不再启动倒计时。
+        printf 'confirmed\n' > "$STATE_DIR/status"
+        state_unlock
+        log "Confirmation recorded; the pending apply will be kept"
+        return 0
+    fi
+
+    printf 'result=confirmed\ntoken=%s\ntime=%s\n' "$token" "$(date +%s)" > "$RESULT_FILE"
+    rm -rf "$STATE_DIR"
+    state_unlock
+
+    log "Configuration confirmed; rollback cancelled"
+    return 0
+}
+
+# 提交阶段失败时，撤销尚未被 reload 读取的请求和快照。
+# 如果 reload 已经开始，则保留状态，让正常的倒计时/回滚流程继续。
+cancel_apply() {
+    local token="$1"
+    local current
+
+    [ -n "$token" ] || return 1
+    [ -f "$APPLY_MARKER" ] || return 1
+
+    current=$(cat "$APPLY_MARKER" 2>/dev/null)
+    [ "$current" = "token=$token" ] || return 1
+
+    rm -f "$APPLY_MARKER" 2>/dev/null
+
+    state_lock || return 1
+    if [ -f "$STATE_DIR/token" ] &&
+       [ "$(cat "$STATE_DIR/token" 2>/dev/null)" = "$token" ]; then
+        rm -rf "$STATE_DIR"
+    fi
+    state_unlock
+
+    log "Cancelled an apply that had not started"
+    return 0
 }
 
 # 检查锁文件
@@ -307,7 +560,7 @@ sethttps() {
         uci commit nginx
         /etc/init.d/nginx reload
     else
-        sed -i "/listen_https/d" /etc/config/uhttpd 2>/dev/null
+        sed -i "/listen_https/d" "$CONFIG_DIR/uhttpd" 2>/dev/null
         $UCISET uhttpd.main.redirect_https='0'
         
         if [ "x${https}" = "x1" ]; then
@@ -346,19 +599,18 @@ sethttps() {
     fi
 }
 
-# 备份配置
+# 本次应用失败时的临时备份（回滚快照由 prepare_apply 单独维护）。
 backup_configs() {
     local backup_dir="/tmp/smartnetpilot_backup_$(date +%s)"
     mkdir -p "$backup_dir"
     for config in network firewall dhcp wireless system uhttpd nginx; do
-        if [ -f "/etc/config/$config" ]; then
-            cp "/etc/config/$config" "$backup_dir/" 2>/dev/null
+        if [ -f "$CONFIG_DIR/$config" ]; then
+            cp "$CONFIG_DIR/$config" "$backup_dir/" 2>/dev/null
         fi
     done
     echo "$backup_dir"
 }
 
-# 恢复配置
 restore_configs() {
     local backup_dir="$1"
     local config
@@ -367,12 +619,126 @@ restore_configs() {
         log "Restoring configurations from backup"
         for config in "$backup_dir"/*; do
             if [ -f "$config" ]; then
-                cp "$config" "/etc/config/" 2>/dev/null
+                cp "$config" "$CONFIG_DIR/" 2>/dev/null
                 uci -q commit "$(basename "$config")" 2>/dev/null
             fi
         done
         rm -rf "$backup_dir"
     fi
+}
+
+# 把回滚快照写回去。返回 0 表示内容本来就一致，2 表示确实改动了配置。
+rollback_configs() {
+    local backup_dir="$1"
+    local config base changed=0
+
+    [ -d "$backup_dir" ] || return 1
+
+    for config in "$backup_dir"/*; do
+        [ -f "$config" ] || continue
+        base=$(basename "$config")
+        cmp -s "$config" "$CONFIG_DIR/$base" || changed=1
+    done
+
+    if [ "$changed" = "0" ]; then
+        rm -rf "$backup_dir"
+        return 0
+    fi
+
+    for config in "$backup_dir"/*; do
+        [ -f "$config" ] || continue
+        base=$(basename "$config")
+        cp "$config" "$CONFIG_DIR/$base" 2>/dev/null
+        uci -q commit "$base" 2>/dev/null
+    done
+
+    rm -rf "$backup_dir"
+    return 2
+}
+
+reload_services() {
+    {
+        /etc/init.d/network restart 2>/dev/null
+        if command -v wifi >/dev/null 2>&1; then
+            wifi reload
+        fi
+        /etc/init.d/system reload 2>/dev/null
+        /etc/init.d/rpcd reload 2>/dev/null
+        /etc/init.d/uhttpd reload 2>/dev/null
+        sleep 1
+        /etc/init.d/dnsmasq reload 2>/dev/null
+        /etc/init.d/firewall reload 2>/dev/null
+    } >/dev/null 2>&1 &
+}
+
+# 超时未确认（或用户主动放弃）时恢复快照。
+rollback_if_pending() {
+    local token="$1"
+    local work="$STATE_DIR.rollback"
+    local status rc
+
+    [ -n "$token" ] || return 1
+
+    state_lock || return 1
+
+    if [ ! -f "$STATE_DIR/token" ] || [ "$(cat "$STATE_DIR/token" 2>/dev/null)" != "$token" ]; then
+        state_unlock
+        return 1
+    fi
+
+    status=$(cat "$STATE_DIR/status" 2>/dev/null)
+    if [ "$status" != "pending" ]; then
+        state_unlock
+        log "Apply state is '${status:-unknown}'; nothing to roll back"
+        return 1
+    fi
+
+    rm -rf "$work"
+    if ! mv "$STATE_DIR" "$work" 2>/dev/null; then
+        state_unlock
+        return 1
+    fi
+    state_unlock
+
+    rollback_configs "$work/backup"
+    rc=$?
+
+    printf 'result=rolledback\ntoken=%s\ntime=%s\n' "$token" "$(date +%s)" > "$RESULT_FILE"
+    rm -rf "$work"
+
+    if [ "$rc" = "2" ]; then
+        log "Configuration rolled back after an unconfirmed apply"
+        reload_services
+    else
+        log "Rollback snapshot already matches the current configuration"
+    fi
+
+    return 0
+}
+
+wait_rollback() {
+    local seconds="$1"
+    local token="$2"
+
+    case "$seconds" in
+        ''|*[!0-9]*) seconds=0 ;;
+    esac
+
+    [ "$seconds" -gt 0 ] && sleep "$seconds"
+
+    rollback_if_pending "$token"
+}
+
+start_rollback_waiter() {
+    local seconds="$1"
+    local token="$2"
+
+    if command -v start-stop-daemon >/dev/null 2>&1; then
+        start-stop-daemon -S -b -x /etc/init.d/smartnetpilot -- wait_rollback "$seconds" "$token" >/dev/null 2>&1 && return 0
+    fi
+
+    ( sleep "$seconds"; /etc/init.d/smartnetpilot rollback_if_pending "$token" ) >/dev/null 2>&1 &
+    return 0
 }
 
 # 在改动任何 UCI 配置之前先校验。没有明确选择模式时一律拒绝执行，
@@ -722,8 +1088,8 @@ EOF
     
     setsynflood
     sethttps "$cfg"
-    sed -i "/dhcp_option '6/d" /etc/config/dhcp 2>/dev/null
-    sed -i "/list dns/d" /etc/config/dhcp 2>/dev/null
+    sed -i "/dhcp_option '6/d" "$CONFIG_DIR/dhcp" 2>/dev/null
+    sed -i "/list dns/d" "$CONFIG_DIR/dhcp" 2>/dev/null
     if [ "x$lan_dhcp" = "x1" ]; then
         $UCIDEL dhcp.lan.force
         $UCISET dhcp.lan.ignore='1'
@@ -815,6 +1181,9 @@ COMMIT_EOF
 
 boot() {
     # 开机不重放：配置在用户点击“保存并应用”时已经写入。
+    # /tmp 中的回滚快照不会跨重启保留，这里只清理残留状态。
+    rm -rf "$STATE_DIR" "$STATE_DIR.lock" "$STATE_DIR.rollback" 2>/dev/null
+    rm -f "$RESULT_FILE" "$APPLY_MARKER" 2>/dev/null
     return 0
 }
 
@@ -852,13 +1221,75 @@ apply_config() {
 }
 
 reload() {
+    local rc timeout deadline
+
     # ucitrack 会在 smartnetpilot 配置提交后调用 reload。
     # 只有向导显式请求过 apply 时才真正执行。
-    if consume_apply_request; then
-        apply_config
-    else
+    if ! consume_apply_request; then
         log "No apply request pending; configuration was not changed"
+        return 0
     fi
+
+    # 带 token 的应用必须有匹配的快照，否则一旦新地址不可达就无法恢复。
+    # 在改动任何配置之前拒绝，避免设备失联。
+    if [ -n "$APPLY_TOKEN" ] &&
+       { [ ! -f "$STATE_DIR/token" ] ||
+         [ "$(cat "$STATE_DIR/token" 2>/dev/null)" != "$APPLY_TOKEN" ]; }; then
+        log "Apply request does not match a rollback snapshot; refusing to change the network"
+        printf 'result=failed\ntoken=%s\ntime=%s\n' "$APPLY_TOKEN" "$(date +%s)" > "$RESULT_FILE"
+        rm -rf "$STATE_DIR"
+        return 1
+    fi
+
+    apply_config
+    rc=$?
+
+    if [ "$rc" != "0" ]; then
+        # 应用失败：撤销倒计时，配置没有被改动。
+        if [ -n "$APPLY_TOKEN" ] && [ -f "$STATE_DIR/token" ] &&
+           [ "$(cat "$STATE_DIR/token" 2>/dev/null)" = "$APPLY_TOKEN" ]; then
+            printf 'result=failed\ntoken=%s\ntime=%s\n' "$APPLY_TOKEN" "$(date +%s)" > "$RESULT_FILE"
+            rm -rf "$STATE_DIR"
+        fi
+        return "$rc"
+    fi
+
+    if [ -n "$APPLY_TOKEN" ] && [ -f "$STATE_DIR/token" ] &&
+       [ "$(cat "$STATE_DIR/token" 2>/dev/null)" = "$APPLY_TOKEN" ]; then
+        # 用户在 reload 之前就确认了：直接保留，不进入倒计时。
+        if [ "$(cat "$STATE_DIR/status" 2>/dev/null)" = "confirmed" ]; then
+            printf 'result=confirmed\ntoken=%s\ntime=%s\n' "$APPLY_TOKEN" "$(date +%s)" > "$RESULT_FILE"
+            rm -rf "$STATE_DIR"
+            log "Configuration applied and already confirmed"
+            return 0
+        fi
+
+        timeout=$(cat "$STATE_DIR/timeout" 2>/dev/null)
+        case "$timeout" in ''|*[!0-9]*) timeout=$ROLLBACK_TIMEOUT_DEFAULT ;; esac
+        deadline=$(($(date +%s) + timeout))
+
+        printf '%s\n' "$deadline" > "$STATE_DIR/deadline"
+        printf 'pending\n' > "$STATE_DIR/status"
+        start_rollback_waiter "$timeout" "$APPLY_TOKEN"
+
+        log "Configuration applied; rolling back in ${timeout}s unless confirmed"
+    else
+        if [ -n "$APPLY_TOKEN" ] && [ -d "$STATE_DIR/backup" ]; then
+            # 并发应用在等待期间改写了状态：立即恢复快照，
+            # 而不是把无法确认的配置留在设备上。
+            rollback_configs "$STATE_DIR/backup"
+            rc=$?
+            printf 'result=rolledback\ntoken=%s\ntime=%s\n' "$APPLY_TOKEN" "$(date +%s)" > "$RESULT_FILE"
+            rm -rf "$STATE_DIR"
+            [ "$rc" = "2" ] && reload_services
+        else
+            # 强制应用或旧的空标记：直接保留配置，不启动倒计时。
+            rm -rf "$STATE_DIR" 2>/dev/null
+            printf 'result=confirmed\ntime=%s\n' "$(date +%s)" > "$RESULT_FILE"
+        fi
+    fi
+
+    return 0
 }
 
 stop() {

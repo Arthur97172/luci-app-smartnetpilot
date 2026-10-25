@@ -6,6 +6,7 @@
 'require ui';
 'require dom';
 'require rpc';
+'require request';
 'require tools.widgets as widgets';
 
 var callGetIp = rpc.declare({
@@ -17,8 +18,35 @@ var callGetIp = rpc.declare({
 var callArmApply = rpc.declare({
 	object: 'luci.smartnetpilot',
 	method: 'arm_apply',
-	expect: { success: false }
+	params: [ 'rollback', 'timeout' ]
 });
+
+var callApplyStatus = rpc.declare({
+	object: 'luci.smartnetpilot',
+	method: 'apply_status',
+	params: [ 'token' ]
+});
+
+var callConfirmApply = rpc.declare({
+	object: 'luci.smartnetpilot',
+	method: 'confirm_apply',
+	params: [ 'token' ]
+});
+
+var callCancelApply = rpc.declare({
+	object: 'luci.smartnetpilot',
+	method: 'cancel_apply',
+	params: [ 'token' ]
+});
+
+var callRollbackApply = rpc.declare({
+	object: 'luci.smartnetpilot',
+	method: 'rollback_apply',
+	params: [ 'token' ]
+});
+
+// Seconds the device waits for a confirmation before restoring the snapshot.
+var APPLY_TIMEOUT = 120;
 
 var MODES = {
 	pppoe: {
@@ -59,7 +87,6 @@ var ICONS = {
 	info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg>'
 };
 
-var pendingRedirect = null;
 var appliedListenerBound = false;
 var themeListenerBound = false;
 
@@ -231,17 +258,6 @@ function bindAppliedListener() {
 		if (!app)
 			return;
 
-		if (pendingRedirect) {
-			var target = pendingRedirect;
-			pendingRedirect = null;
-
-			window.setTimeout(function() {
-				window.location.replace(target);
-			}, 2500);
-
-			return;
-		}
-
 		var toast = E('div', { 'class': 'snp-toast is-success' }, [
 			icon('check'),
 			E('span', {}, _('Configuration applied successfully.'))
@@ -290,11 +306,14 @@ return view.extend({
 			L.resolveDefault(uci.load('wireless'), null),
 			uci.load('network'),
 			uci.load('smartnetpilot'),
-			L.resolveDefault(callGetIp(), { ip: '' })
+			L.resolveDefault(callGetIp(), { ip: '' }),
+			L.resolveDefault(callApplyStatus(), null)
 		]);
 	},
 
 	render: function(data) {
+		var self = this;
+		var applyStatus = data[5] || null;
 		var devices = data[0] || [];
 		var lanIp = (data[4] && data[4].ip) ? data[4].ip : stripCidr(uci.get('network', 'lan', 'ipaddr'));
 		var networkProto = uci.get('network', 'wan', 'proto');
@@ -333,6 +352,17 @@ return view.extend({
 
 		var params = new URLSearchParams(window.location.search);
 		var requested = params.get('mode');
+
+		// A pending apply survives page loads and IP changes: reopening the
+		// wizard on the new address must still offer the confirmation.
+		if (applyStatus && applyStatus.status === 'pending') {
+			window.setTimeout(function() {
+				self._showRollbackModal(applyStatus);
+			}, 400);
+		}
+		else if (applyStatus && applyStatus.status === 'armed') {
+			this._watchArmedApply(20);
+		}
 
 		if (requested && MODES[requested])
 			return this.renderConfig(requested, params.get('tab'));
@@ -789,35 +819,44 @@ return view.extend({
 		};
 	},
 
+	_hasPendingChanges: function() {
+		return L.resolveDefault(uci.changes(), {}).then(function(changes) {
+			if (!changes)
+				return false;
+
+			for (var conf in changes)
+				if (Object.prototype.hasOwnProperty.call(changes, conf) &&
+				    changes[conf] && changes[conf].length)
+					return true;
+
+			return false;
+		});
+	},
+
 	handleSaveApply: function(ev, mode) {
 		var self = this;
+		var force = (mode == '1');
 
 		this._applying = true;
 
 		return this.handleSave(ev).then(function() {
 			var plan = self._buildApplyPlan();
+
 			self._applying = false;
 
-			var proceed = function() {
-				pendingRedirect = plan.redirectTarget;
-
-				return L.resolveDefault(callArmApply(), { success: false }).then(function(res) {
-					if (!res || res.success !== true) {
-						pendingRedirect = null;
-						self._toast(_('Could not prepare the configuration apply. Please try again.'), 'error');
-						return;
-					}
-
-					ui.changes.apply(mode == '0' && !plan.unchecked);
-				});
+			var run = function(forceApply) {
+				return self._applyChanges(plan, forceApply);
 			};
 
-			if (!plan.warnings.length)
-				return proceed();
+			if (force || !plan.warnings.length)
+				return run(force);
 
-			return self._confirmApply(plan).then(function(confirmed) {
-				if (confirmed)
-					return proceed();
+			return self._confirmApply(plan).then(function(choice) {
+				if (choice === 'force')
+					return run(true);
+
+				if (choice === 'apply')
+					return run(false);
 
 				self._toast(_('Apply cancelled.'), 'error');
 			});
@@ -825,6 +864,367 @@ return view.extend({
 			self._applying = false;
 			self._toast(_('Configuration could not be saved. %s').format(err && err.message ? err.message : ''), 'error');
 			throw err;
+		});
+	},
+
+	// 两阶段提交的第二阶段：先让设备拍快照并写入 token，再提交配置。
+	// 这里刻意绕开 LuCI 自带的 apply_rollback：它的快照只覆盖会话里
+	// 暂存的配置，不包含 init 脚本写入的 network/dhcp 等文件。
+	_applyChanges: function(plan, force) {
+		var self = this;
+
+		return this._hasPendingChanges().then(function(pending) {
+			if (!pending) {
+				self._toast(_('There are no changes to apply.'), 'info');
+				return;
+			}
+
+			return L.resolveDefault(callArmApply(force ? 0 : 1, APPLY_TIMEOUT), { success: false }).then(function(res) {
+				if (!res || res.success !== true) {
+					self._toast(_('Could not prepare the configuration apply. Please try again.'), 'error');
+					return;
+				}
+
+				var token = res.token || '';
+
+				self._applyBase = {
+					ip: self._lanIp || '',
+					https: !!self._initialHttps,
+					performed: true
+				};
+
+				return self._postApply().then(function(status) {
+					if (status >= 200 && status < 300) {
+						self._afterApply(plan, force, token);
+						return;
+					}
+
+					self._toast(_('Apply request failed with status %s.').format(status), 'error');
+
+					// Nothing was committed; cancel the rollback we armed. If the
+					// device already started applying, keep the rollback and offer
+					// the confirmation instead.
+					if (token) {
+						return L.resolveDefault(callCancelApply(token), { success: false }).then(function(res) {
+							if (res && res.success === true)
+								return;
+
+							return L.resolveDefault(callApplyStatus(token), null).then(function(state) {
+								if (state && state.status === 'pending')
+									self._showRollbackModal(state, plan);
+							});
+						});
+					}
+				});
+			});
+		});
+	},
+
+	_postApply: function() {
+		return request.request(L.url('admin/uci', 'apply_unchecked'), {
+			method: 'post',
+			query: { sid: L.env.sessionid, token: L.env.token }
+		}).then(function(res) {
+			return res ? res.status : 0;
+		}).catch(function() {
+			return 0;
+		});
+	},
+
+	_afterApply: function(plan, force, token) {
+		var self = this;
+
+		if (force) {
+			this._toast(_('Configuration applied without confirmation.'), 'success');
+			this._scheduleRedirect(plan, 2500);
+			return;
+		}
+
+		this._awaitApplied(plan, token, 15);
+	},
+
+	// ucitrack may run the init script a moment after the commit returns.
+	// Poll briefly so the countdown reflects the device state instead of
+	// offering confirmation before the apply actually started.
+	_awaitApplied: function(plan, token, attempts) {
+		var self = this;
+
+		L.resolveDefault(callApplyStatus(token), null).then(function(status) {
+			if (status && status.status === 'failed') {
+				self._toast(_('The configuration could not be applied.'), 'error');
+				return;
+			}
+
+			if (status && status.status === 'confirmed') {
+				self._toast(_('Configuration confirmed. The new settings are kept.'), 'success');
+				self._scheduleRedirect(plan, 2500);
+				return;
+			}
+
+			if (status && status.status === 'pending') {
+				self._showRollbackModal(status, plan);
+				// When the management address changed, follow it so the user
+				// can confirm from the new address before the countdown ends.
+				self._scheduleRedirect(plan, 3000);
+				return;
+			}
+
+			if (attempts > 0 && (!status || status.status === 'armed' || status.status === 'idle')) {
+				window.setTimeout(function() {
+					self._awaitApplied(plan, token, attempts - 1);
+				}, 400);
+				return;
+			}
+
+			self._showRollbackModal(status || {
+				token: token,
+				remaining: APPLY_TIMEOUT,
+				timeout: APPLY_TIMEOUT
+			}, plan);
+		});
+	},
+
+	_scheduleRedirect: function(plan, delay) {
+		var target = plan ? plan.redirectTarget : null;
+
+		if (!target)
+			return;
+
+		try {
+			var next = new URL(target, window.location.href);
+			if (next.origin === window.location.origin &&
+			    next.pathname === window.location.pathname)
+				return;
+		}
+		catch (e) {
+			return;
+		}
+
+		window.setTimeout(function() {
+			window.location.replace(target);
+		}, delay);
+	},
+
+	_watchArmedApply: function(attempts) {
+		var self = this;
+
+		if (!attempts || attempts <= 0)
+			return;
+
+		window.setTimeout(function() {
+			L.resolveDefault(callApplyStatus(), null).then(function(status) {
+				if (!status)
+					return;
+
+				if (status.status === 'pending')
+					self._showRollbackModal(status);
+				else if (status.status === 'armed')
+					self._watchArmedApply(attempts - 1);
+			});
+		}, 1500);
+	},
+
+	_showRollbackModal: function(state, plan) {
+		var self = this;
+		var token = state && state.token ? state.token : '';
+
+		this._rollbackProgressShown = false;
+		var timeout = Number(state && state.timeout) || APPLY_TIMEOUT;
+		var remaining = Math.max(Number(state && state.remaining) || 0, 0);
+		var finished = false;
+		var redirect = plan ? plan.redirectTarget : null;
+
+		if (!token)
+			return;
+
+		var countdownNode = E('span', { 'class': 'snp-modal-countdown-value' }, String(remaining));
+		var hintNode = E('p', { 'class': 'snp-modal-hint' },
+			_('If you do not confirm within %d seconds, the previous configuration is restored automatically.').format(timeout));
+
+		var keepButton = E('button', {
+			'type': 'button',
+			'class': 'snp-btn snp-btn-primary',
+			'click': function() {
+				confirmNow();
+			}
+		}, _('Keep configuration'));
+
+		var rollbackButton = E('button', {
+			'type': 'button',
+			'class': 'snp-btn snp-btn-ghost',
+			'click': function() {
+				rollbackNow();
+			}
+		}, _('Roll back now'));
+
+		var stopTimers = function() {
+			finished = true;
+
+			if (self._rollbackTickTimer) {
+				window.clearInterval(self._rollbackTickTimer);
+				self._rollbackTickTimer = null;
+			}
+
+			if (self._rollbackPollTimer) {
+				window.clearInterval(self._rollbackPollTimer);
+				self._rollbackPollTimer = null;
+			}
+		};
+
+		var finish = function(message, type) {
+			stopTimers();
+			self._closeModal();
+
+			if (message)
+				self._toast(message, type);
+		};
+
+		var confirmNow = function() {
+			if (finished)
+				return;
+
+			keepButton.disabled = true;
+			rollbackButton.disabled = true;
+			hintNode.textContent = _('Saving confirmation…');
+
+			L.resolveDefault(callConfirmApply(token), { success: false }).then(function(res) {
+				if (res && res.success === true) {
+					finish(_('Configuration confirmed. The new settings are kept.'), 'success');
+					self._scheduleRedirect(plan, 2500);
+					return;
+				}
+
+				keepButton.disabled = false;
+				rollbackButton.disabled = false;
+				hintNode.textContent = _('The device did not confirm the configuration. Please try again.');
+			});
+		};
+
+		var rollbackNow = function() {
+			if (finished)
+				return;
+
+			keepButton.disabled = true;
+			rollbackButton.disabled = true;
+			hintNode.textContent = _('Restoring the previous configuration…');
+
+			// The reply may never arrive when the address changes; the device
+			// performs the rollback either way, so show the progress screen.
+			L.resolveDefault(callRollbackApply(token), { success: false }).then(function() {
+				self._showRollbackProgress();
+			});
+		};
+
+		var tick = function() {
+			remaining = Math.max(remaining - 1, 0);
+			countdownNode.textContent = String(remaining);
+
+			if (remaining === 0)
+				hintNode.textContent = _('Restoring the previous configuration…');
+		};
+
+		var poll = function() {
+			L.resolveDefault(callApplyStatus(token), null).then(function(status) {
+				if (finished || !status)
+					return;
+
+				if (status.status === 'confirmed') {
+					finish(_('Configuration confirmed. The new settings are kept.'), 'success');
+				}
+				else if (status.status === 'rolledback' || status.status === 'rollingback') {
+					stopTimers();
+					self._closeModal();
+					self._showRollbackProgress();
+				}
+				else if (status.status === 'failed') {
+					finish(_('The configuration could not be applied.'), 'error');
+				}
+				else if (status.status === 'idle') {
+					finish(null, null);
+				}
+				else if (status.status === 'pending') {
+					remaining = Math.max(Number(status.remaining) || 0, 0);
+					timeout = Number(status.timeout) || timeout;
+					countdownNode.textContent = String(remaining);
+				}
+			});
+		};
+
+		var body = [
+			E('p', {}, _('The new settings were applied. Keep them, or the previous configuration will be restored automatically.')),
+			E('div', { 'class': 'snp-modal-countdown' }, [
+				E('span', { 'class': 'snp-modal-countdown-label' }, _('Rollback in')),
+				countdownNode,
+				E('span', { 'class': 'snp-modal-countdown-unit' }, _('s'))
+			]),
+			hintNode
+		];
+
+		if (redirect)
+			body.push(E('p', {}, _('New management address: %s').format(redirect)));
+
+		this._showModal({
+			title: _('Confirm the new configuration'),
+			icon: 'alert',
+			iconClass: 'is-warning',
+			body: body,
+			actions: [ rollbackButton, keepButton ],
+			dismissible: false
+		});
+
+		this._rollbackTickTimer = window.setInterval(tick, 1000);
+		this._rollbackPollTimer = window.setInterval(poll, 3000);
+	},
+
+	_showRollbackProgress: function() {
+		if (this._rollbackProgressShown)
+			return;
+
+		this._rollbackProgressShown = true;
+
+		var self = this;
+		var base = this._applyBase;
+		var oldOrigin = base && base.performed && base.ip ? buildOrigin(base.ip, base.https) : null;
+		var target = oldOrigin ? oldOrigin + L.url('admin/network/smartnetpilot') : null;
+		var actions = [];
+
+		if (this._rollbackTickTimer) {
+			window.clearInterval(this._rollbackTickTimer);
+			this._rollbackTickTimer = null;
+		}
+
+		if (this._rollbackPollTimer) {
+			window.clearInterval(this._rollbackPollTimer);
+			this._rollbackPollTimer = null;
+		}
+
+		if (target) {
+			actions.push(E('button', {
+				'type': 'button',
+				'class': 'snp-btn snp-btn-ghost',
+				'click': function() {
+					window.location.replace(target);
+				}
+			}, _('Reconnect to the previous address')));
+		}
+
+		actions.push(E('button', {
+			'type': 'button',
+			'class': 'snp-btn snp-btn-primary',
+			'click': function() {
+				self._closeModal();
+			}
+		}, _('Close')));
+
+		this._showModal({
+			title: _('Restoring the previous configuration'),
+			icon: 'refresh',
+			body: [
+				E('p', {}, _('The previous network settings are being restored. The connection will be interrupted; reconnect to the router once it is done.')),
+				oldOrigin ? E('p', {}, _('Previous management address: %s').format(oldOrigin)) : E('span')
+			],
+			actions: actions,
+			dismissible: false
 		});
 	},
 
@@ -841,12 +1241,21 @@ return view.extend({
 				}
 			}, _('Cancel'));
 
+			var forceButton = E('button', {
+				'type': 'button',
+				'class': 'snp-btn snp-btn-ghost',
+				'click': function() {
+					self._closeModal();
+					resolve('force');
+				}
+			}, _('Apply without confirmation'));
+
 			var acceptButton = E('button', {
 				'type': 'button',
 				'class': 'snp-btn snp-btn-primary',
 				'click': function() {
 					self._closeModal();
-					resolve(true);
+					resolve('apply');
 				}
 			}, plan.lanDhcp ? _('Apply and disconnect') : _('Continue and apply'));
 
@@ -869,9 +1278,10 @@ return view.extend({
 							E('p', {}, _('New management address')),
 							E('span', { 'class': 'snp-modal-address' }, plan.redirectTarget)
 						])
-						: E('span')
+						: E('span'),
+					E('p', { 'class': 'snp-modal-hint' }, _('“Apply without confirmation” skips the automatic rollback. If the new address is wrong, the device may become unreachable.'))
 				],
-				actions: [ cancelButton, acceptButton ],
+				actions: [ cancelButton, forceButton, acceptButton ],
 				dismissible: true,
 				onDismiss: function() {
 					resolve(false);
@@ -931,6 +1341,16 @@ return view.extend({
 	},
 
 	_closeModal: function() {
+		if (this._rollbackTickTimer) {
+			window.clearInterval(this._rollbackTickTimer);
+			this._rollbackTickTimer = null;
+		}
+
+		if (this._rollbackPollTimer) {
+			window.clearInterval(this._rollbackPollTimer);
+			this._rollbackPollTimer = null;
+		}
+
 		if (this._modalKeyHandler) {
 			document.removeEventListener('keydown', this._modalKeyHandler);
 			this._modalKeyHandler = null;

@@ -10,7 +10,7 @@
 		},
 		"write": {
 			"ubus": {
-				"luci.smartnetpilot": [ "arm_apply" ]
+				"luci.smartnetpilot": [ "arm_apply", "confirm_apply", "cancel_apply", "rollback_apply" ]
 			},
 			"uci": [ "smartnetpilot" ]
 		}

@@ -1110,6 +1110,40 @@ html.dark .snp-app,
 	font-variant-numeric: tabular-nums;
 }
 
+.snp-modal-countdown {
+	display: flex;
+	align-items: baseline;
+	justify-content: center;
+	gap: 0.45rem;
+	margin-top: 1rem;
+	padding: 0.75rem 1rem;
+	border: 1px solid var(--snp-border);
+	border-radius: 14px;
+	background: var(--snp-surface-2);
+	color: var(--snp-text);
+}
+
+.snp-modal-countdown-label,
+.snp-modal-countdown-unit {
+	font-size: 0.86rem;
+	font-weight: 650;
+	color: var(--snp-muted);
+}
+
+.snp-modal-countdown-value {
+	font-size: 2rem;
+	font-weight: 800;
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+	color: var(--snp-violet);
+}
+
+.snp-modal-hint {
+	color: var(--snp-muted);
+	font-size: 0.82rem;
+	line-height: 1.6;
+}
+
 .snp-modal-actions {
 	display: flex;
 	flex-wrap: wrap;
