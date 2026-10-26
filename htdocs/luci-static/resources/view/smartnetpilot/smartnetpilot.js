@@ -86,8 +86,7 @@ var ICONS = {
 	topology: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="6" height="5" rx="1.5"/><rect x="15" y="3" width="6" height="5" rx="1.5"/><rect x="9" y="16" width="6" height="5" rx="1.5"/><path d="M6 8v3.5h12V8"/><path d="M12 11.5V16"/></svg>',
 	arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M14 7l5 5-5 5"/></svg>',
 	refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 4v7h-7"/></svg>',
-	gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 00-1.9-.3 1.7 1.7 0 00-1 1.6v.2h-4V21a1.7 1.7 0 00-1-1.6 1.7 1.7 0 00-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 00.3-1.9 1.7 1.7 0 00-1.6-1H2.8v-4H3a1.7 1.7 0 001.6-1 1.7 1.7 0 00-.3-1.9L4.2 7 7 4.2l.1.1a1.7 1.7 0 001.9.3A1.7 1.7 0 0010 3V2.8h4V3a1.7 1.7 0 001 1.6 1.7 1.7 0 001.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 00-.3 1.9 1.7 1.7 0 001.6 1h.2v4H21a1.7 1.7 0 00-1.6 1z"/></svg>',
-	check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>',
+	check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>',
 	alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.7L2.3 17a2 2 0 001.7 3h16a2 2 0 001.7-3l-8-13.3a2 2 0 00-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
 	wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0120 0"/><path d="M5 12.4a10.5 10.5 0 0114 0"/><path d="M8.5 16a5.5 5.5 0 017 0"/><circle cx="12" cy="19.5" r="1"/></svg>',
 	shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.2-2.9 7.3-7 8.5-4.1-1.2-7-4.3-7-8.5V6l7-3z"/></svg>',
@@ -425,20 +424,12 @@ return view.extend({
 
 		root.appendChild(E('section', { 'class': 'snp-section' }, [
 			E('div', { 'class': 'snp-section-head' }, [
-				E('div', {}, [
-					E('h2', {}, _('Choose a connection mode')),
-					E('p', {}, _('Pick the description that matches your internet line. You can change it later without losing the other settings.'))
-				]),
-				E('span', { 'class': 'snp-section-count' }, _('%d modes').format(3))
+				E('h2', {}, _('Choose a connection mode'))
 			]),
 			E('div', { 'class': 'snp-mode-grid' }, [
 				this._modeCard('pppoe', currentMode),
 				this._modeCard('dhcp', currentMode),
 				this._modeCard('siderouter', currentMode)
-			]),
-			E('div', { 'class': 'snp-help-strip' }, [
-				icon('info'),
-				E('span', {}, _('Not sure which one to choose? If another router already provides Wi-Fi, use “DHCP Client”. If your ISP gave you a broadband account, use “PPPoE Dial-up”.'))
 			])
 		]));
 
@@ -587,11 +578,7 @@ return view.extend({
 				E('div', { 'class': 'snp-mode-overview-copy' }, [
 					E('strong', {}, info.title),
 					E('span', {}, info.description)
-				]),
-				E('a', {
-					'class': 'snp-btn snp-btn-ghost',
-					'href': L.url('admin/network/smartnetpilot')
-				}, [ icon('refresh'), _('Change mode') ])
+				])
 			]);
 
 			pane.insertBefore(overview, pane.firstChild);
@@ -622,67 +609,8 @@ return view.extend({
 	},
 
 	_addWanFields: function(s) {
+		var self = this;
 		var o;
-
-		o = s.taboption('wansetup', form.Flag, 'setlan', _('Configure LAN port addressing'));
-		o.default = 0;
-		o.rmempty = false;
-		o.depends('wan_proto', 'pppoe');
-		o.depends('wan_proto', 'dhcp');
-
-		o = s.taboption('wansetup', form.ListValue, 'lan_proto', _('LAN address mode'),
-			_('DHCP client mode takes the LAN address from the upstream router. Check the upstream lease table to find the new address.'));
-		o.default = 'static';
-		o.value('static', _('Static IPv4 address'));
-		o.value('dhcp', _('DHCP client (assigned upstream)'));
-		o.depends('wan_proto', 'siderouter');
-		o.rmempty = false;
-
-		o = s.taboption('wansetup', form.Value, 'lan_ipaddr', _('LAN IPv4 address'),
-			_('The management address of this router. Choose an address outside the upstream DHCP pool.'));
-		o.default = this._lanIp || '192.168.1.1';
-		o.datatype = 'ip4addr';
-		o.rmempty = false;
-		o.depends({ 'wan_proto': 'pppoe', 'setlan': '1' });
-		o.depends({ 'wan_proto': 'dhcp', 'setlan': '1' });
-		o.depends({ 'wan_proto': 'siderouter', 'lan_proto': 'static' });
-
-		o = s.taboption('wansetup', form.Value, 'lan_netmask', _('LAN IPv4 netmask'));
-		o.default = uci.get('smartnetpilot', 'default', 'lan_netmask') || '255.255.255.0';
-		o.datatype = 'ip4addr';
-		o.value('255.255.255.0');
-		o.value('255.255.0.0');
-		o.value('255.0.0.0');
-		o.rmempty = false;
-		o.depends({ 'wan_proto': 'pppoe', 'setlan': '1' });
-		o.depends({ 'wan_proto': 'dhcp', 'setlan': '1' });
-		o.depends({ 'wan_proto': 'siderouter', 'lan_proto': 'static' });
-
-		o = s.taboption('wansetup', form.Value, 'lan_gateway', _('LAN IPv4 gateway'),
-			_('Side router only: enter the address of the main router. It must be in the same subnet as this router.'));
-		o.datatype = 'ip4addr';
-		o.rmempty = false;
-		o.depends({ 'wan_proto': 'siderouter', 'lan_proto': 'static' });
-
-		o = s.taboption('wansetup', form.ListValue, 'dhcp_proto', _('WAN address mode'),
-			_('Choose how the WAN interface obtains its address.'));
-		o.default = 'dhcp';
-		o.value('static', _('Static IPv4 address'));
-		o.value('dhcp', _('DHCP client'));
-		o.rmempty = false;
-		o.depends('wan_proto', 'dhcp');
-
-		o = s.taboption('wansetup', form.DynamicList, 'lan_dns', _('Side router DNS servers'),
-			_('DNS servers handed to LAN clients. Leave empty to use the defaults.'));
-		o.default = '223.5.5.5';
-		o.datatype = 'ip4addr';
-		o.rmempty = false;
-		o.value('223.5.5.5', _('Ali DNS: 223.5.5.5'));
-		o.value('180.76.76.76', _('Baidu DNS: 180.76.76.76'));
-		o.value('114.114.114.114', _('114 DNS: 114.114.114.114'));
-		o.value('8.8.8.8', _('Google DNS: 8.8.8.8'));
-		o.value('1.1.1.1', _('Cloudflare DNS: 1.1.1.1'));
-		o.depends('wan_proto', 'siderouter');
 
 		o = s.taboption('wansetup', widgets.DeviceSelect, 'wan_interface', _('WAN device'),
 			_('Physical network port used for the internet connection.'));
@@ -702,8 +630,8 @@ return view.extend({
 
 			return _('This is the switch CPU port, not a physical network port.');
 		};
-		o.depends({ 'wan_proto': 'pppoe', 'setlan': '1' });
-		o.depends({ 'wan_proto': 'dhcp', 'setlan': '1' });
+		o.depends('wan_proto', 'pppoe');
+		o.depends('wan_proto', 'dhcp');
 
 		o = s.taboption('wansetup', form.Value, 'wan_pppoe_user', _('PPPoE username'));
 		o.rmempty = false;
@@ -713,6 +641,14 @@ return view.extend({
 		o.password = true;
 		o.rmempty = false;
 		o.depends('wan_proto', 'pppoe');
+
+		o = s.taboption('wansetup', form.ListValue, 'dhcp_proto', _('WAN address mode'),
+			_('Choose how the WAN interface obtains its address.'));
+		o.default = 'dhcp';
+		o.value('static', _('Static IPv4 address'));
+		o.value('dhcp', _('DHCP client'));
+		o.rmempty = false;
+		o.depends('wan_proto', 'dhcp');
 
 		o = s.taboption('wansetup', form.Value, 'wan_ipaddr', _('WAN IPv4 address'));
 		o.datatype = 'ip4addr';
@@ -743,6 +679,48 @@ return view.extend({
 		o.value('1.1.1.1', _('Cloudflare DNS: 1.1.1.1'));
 		o.depends('wan_proto', 'pppoe');
 		o.depends('wan_proto', 'dhcp');
+
+		o = s.taboption('wansetup', form.ListValue, 'lan_proto', _('LAN address mode'),
+			_('DHCP client mode takes the LAN address from the upstream router. Check the upstream lease table to find the new address.'));
+		o.default = 'static';
+		o.value('static', _('Static IPv4 address'));
+		o.value('dhcp', _('DHCP client (assigned upstream)'));
+		o.depends('wan_proto', 'siderouter');
+		o.rmempty = false;
+
+		o = s.taboption('wansetup', form.Value, 'lan_ipaddr', _('LAN IPv4 address'),
+			_('The management address of this router. Choose an address outside the upstream DHCP pool.'));
+		o.default = this._lanIp || '192.168.1.1';
+		o.datatype = 'ip4addr';
+		o.rmempty = false;
+		o.depends({ 'wan_proto': 'siderouter', 'lan_proto': 'static' });
+
+		o = s.taboption('wansetup', form.Value, 'lan_netmask', _('LAN IPv4 netmask'));
+		o.default = uci.get('smartnetpilot', 'default', 'lan_netmask') || '255.255.255.0';
+		o.datatype = 'ip4addr';
+		o.value('255.255.255.0');
+		o.value('255.255.0.0');
+		o.value('255.0.0.0');
+		o.rmempty = false;
+		o.depends({ 'wan_proto': 'siderouter', 'lan_proto': 'static' });
+
+		o = s.taboption('wansetup', form.Value, 'lan_gateway', _('LAN IPv4 gateway'),
+			_('Side router only: enter the address of the main router. It must be in the same subnet as this router.'));
+		o.datatype = 'ip4addr';
+		o.rmempty = false;
+		o.depends({ 'wan_proto': 'siderouter', 'lan_proto': 'static' });
+
+		o = s.taboption('wansetup', form.DynamicList, 'lan_dns', _('LAN DNS servers'),
+			_('DNS servers handed to LAN clients. Leave empty to use the defaults.'));
+		o.default = '223.5.5.5';
+		o.datatype = 'ip4addr';
+		o.rmempty = false;
+		o.value('223.5.5.5', _('Ali DNS: 223.5.5.5'));
+		o.value('180.76.76.76', _('Baidu DNS: 180.76.76.76'));
+		o.value('114.114.114.114', _('114 DNS: 114.114.114.114'));
+		o.value('8.8.8.8', _('Google DNS: 8.8.8.8'));
+		o.value('1.1.1.1', _('Cloudflare DNS: 1.1.1.1'));
+		o.depends('wan_proto', 'siderouter');
 
 		o = s.taboption('wansetup', form.Flag, 'ipv6', _('Enable IPv6'),
 			_('Configure IPv6 on the WAN and LAN interfaces. Disable it if your ISP does not provide IPv6.'));
@@ -800,7 +778,6 @@ return view.extend({
 
 	_buildApplyPlan: function() {
 		var mode = this._mode || uci.get('smartnetpilot', 'default', 'wan_proto') || 'siderouter';
-		var setlan = uci.get('smartnetpilot', 'default', 'setlan') === '1';
 		var lanProto = uci.get('smartnetpilot', 'default', 'lan_proto') || 'static';
 		var lanIp = uci.get('smartnetpilot', 'default', 'lan_ipaddr') || '';
 		var https = uci.get('smartnetpilot', 'default', 'https') === '1';
@@ -808,9 +785,9 @@ return view.extend({
 		var key = uci.get('smartnetpilot', 'default', 'wifi_key') || '';
 		var initial = this._initial || {};
 		var initialIp = initial.lanIp || window.location.hostname || '';
-		var lanDhcp = mode === 'siderouter' && lanProto === 'dhcp';
-		var lanApplies = (mode === 'siderouter' && lanProto === 'static') ||
-			((mode === 'pppoe' || mode === 'dhcp') && setlan);
+		var lanMode = (mode === 'siderouter');
+		var lanDhcp = lanMode && lanProto === 'dhcp';
+		var lanApplies = lanMode && lanProto === 'static';
 		var desiredIp = lanApplies ? lanIp : null;
 		var ipChanged = !lanDhcp && desiredIp && initialIp && desiredIp !== initialIp;
 		var httpsChanged = https !== !!initial.https;

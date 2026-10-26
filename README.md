@@ -64,7 +64,7 @@ make package/luci-app-smartnetpilot/compile V=s
 2. 在「WAN 设置」里按所选模式填写内容：
    - **宽带拨号**：宽带账号、密码；可指定 WAN 物理端口，也可以自定义 DNS。
    - **连接现有路由器**：WAN 用 DHCP 自动获取，或选择「静态 IPv4 地址」后填写地址、掩码、网关和 DNS。
-   - **旁路由**：设置本机 LAN 地址（静态或由上级分配），并填写主路由器地址作为网关；「Side router DNS servers」会下发给局域网客户端。
+   - **旁路由**：设置本机 LAN 地址（静态或由上级分配），并填写主路由器地址作为网关；「局域网 DNS 服务器」会下发给局域网客户端。
 3. 需要改 Wi-Fi 时填写「无线设置」里的名称（SSID）和密码（WPA2-PSK，至少 8 位）。留空则不改动现有无线配置。
 4. 「其他设置」可以开启 IPv6、关闭 LAN 的 DHCP 服务器、向客户端通告指定 DNS、把管理页面重定向到 HTTPS、开启 SYN Flood 防护。
 5. 点击页面底部的「保存并应用」。只想暂存修改时，可以先点「保存」。
@@ -101,7 +101,7 @@ make package/luci-app-smartnetpilot/compile V=s
 
 写入内容：
 
-- **network**：按模式重建 `wan` / `wan6`（PPPoE、DHCP 或静态地址），旁路由模式下改写 LAN。
+- **network**：按模式重建 `wan` / `wan6`（PPPoE、DHCP 或静态地址）；旁路由模式只改写 LAN。
 - **firewall**：重建 WAN 区域和 lan→wan 转发，写入 SYN Flood 开关；检测到 `dockerd` 时补上 Docker 区域与相关转发。
 - **dhcp**：按需关闭 LAN 的 DHCP 服务器，或通过 `dhcp_option 6` 向客户端下发指定 DNS。
 - **wireless**：把 SSID / 密码写入所有 AP 接口和默认 radio，加密方式为 WPA2-PSK。

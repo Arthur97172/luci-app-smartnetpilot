@@ -76,8 +76,8 @@ The built packages end up in `bin/packages/<arch>/base/`.
    - **DHCP Client**: let WAN obtain an address automatically, or choose
      **Static IPv4 address** and enter address, netmask, gateway and DNS.
    - **Side Router**: set this device's LAN address (static or assigned by the
-     upstream router) and enter the main router as the gateway; **Side router
-     DNS servers** are handed to LAN clients.
+     upstream router) and enter the main router as the gateway; **LAN DNS
+     servers** are handed to LAN clients.
 3. To change Wi-Fi, fill in the SSID and password under **Wireless Settings**
    (WPA2-PSK, at least 8 characters). Leave them empty to keep the current
    wireless configuration untouched.
@@ -155,7 +155,7 @@ Checks performed before anything is written:
 What gets written:
 
 - **network**: rebuilds `wan` / `wan6` for the chosen mode (PPPoE, DHCP or
-  static), or rewrites LAN in side-router mode.
+  static); side-router mode rewrites LAN only.
 - **firewall**: recreates the WAN zone and the lan→wan forwarding, applies the
   SYN-flood switch, and adds Docker zones and forwardings when `dockerd` is
   present.

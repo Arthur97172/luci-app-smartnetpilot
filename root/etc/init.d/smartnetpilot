@@ -869,12 +869,52 @@ preflight_config() {
             ;;
     esac
 
-    if [ "$setlan" = "1" ] && [ "$wan_proto" != "siderouter" ]; then
-        if ! validate_ip "$lan_ipaddr"; then
-            log "LAN addressing enabled but LAN IPv4 address invalid; refusing to apply"
+    return 0
+}
+
+# 按 lan_proto 应用 LAN 地址。
+set_lan_addressing() {
+    local dns
+
+    case "${lan_proto}" in
+        static)
+            $UCISET network.lan.proto='static'
+            if [ -n "$lan_ipaddr" ]; then
+                set_ipv4 network.lan.ipaddr "$lan_ipaddr"
+            fi
+            if [ -n "$lan_netmask" ]; then
+                set_ipv4 network.lan.netmask "$lan_netmask"
+            fi
+            if [ -n "$lan_gateway" ]; then
+                set_ipv4 network.lan.gateway "$lan_gateway"
+            fi
+            if [ -n "$lan_dns" ]; then
+                $UCIDEL network.lan.dns
+                for dns in ${lan_dns}; do
+                    $UCIADDLIST network.lan.dns="$dns"
+                done
+            fi
+            ;;
+
+        dhcp)
+            $UCISET network.lan.proto='dhcp'
+            $UCIDEL network.lan.ipaddr
+            $UCIDEL network.lan.netmask
+            $UCIDEL network.lan.dns
+            if [ -n "$lan_dns" ]; then
+                $UCISET network.lan.peerdns='0'
+                for dns in ${lan_dns}; do
+                    $UCIADDLIST network.lan.dns="$dns"
+                done
+            else
+                $UCIDEL network.lan.peerdns
+            fi
+            ;;
+        *)
+            log "Unknown LAN mode '$lan_proto'; refusing to apply"
             return 1
-        fi
-    fi
+            ;;
+    esac
 
     return 0
 }
@@ -922,13 +962,12 @@ configure_network() {
     local wan_proto wan_ipaddr wan_netmask wan_gateway wan_dns wan_pppoe_user wan_pppoe_pass
     local ipv6 wifi_ssid wifi_key old_wifi_ssid old_wifi_key
     local lan_ipaddr lan_netmask lan_gateway lan_dns lan_dhcp wan_interface lan_proto
-    local dns_tables synflood https setlan
+    local dns_tables synflood https
     local ifname i
     local wifi_changed=0
 
     # 获取配置
     config_get wan_proto "$cfg" wan_proto
-    config_get setlan "$cfg" setlan '0'
     config_get ipv6 "$cfg" ipv6 '0'
     config_get dnsset "$cfg" dnsset '0'
     config_get wan_interface "$cfg" wan_interface
@@ -1075,6 +1114,12 @@ configure_network() {
                         $UCIDEL network.wan.peerdns
                     fi
                     ;;
+
+                *)
+                    log "Unknown WAN mode '$dhcp_proto'; refusing to apply"
+                    APPLY_FAILED=1
+                    return 1
+                    ;;
             esac
             setforwarding
             [ "x$ipv6" = "x1" ] && setipv6 3 || setipv6 0
@@ -1084,42 +1129,11 @@ configure_network() {
             $UCIDEL firewall.@zone[0].network
             $UCIADDLIST firewall.@zone[0].network='lan'
             $UCIDEL dhcp.lan.ra_slaac
-            
-            case "${lan_proto}" in
-                static)
-                    $UCISET network.lan.proto='static'
-                    if [ -n "$lan_ipaddr" ]; then
-                        set_ipv4 network.lan.ipaddr "$lan_ipaddr"
-                    fi
-                    if [ -n "$lan_netmask" ]; then
-                        set_ipv4 network.lan.netmask "$lan_netmask"
-                    fi
-                    if [ -n "$lan_gateway" ]; then
-                        set_ipv4 network.lan.gateway "$lan_gateway"
-                    fi
-                    if [ -n "$lan_dns" ]; then
-                        $UCIDEL network.lan.dns
-                        for dns in ${lan_dns}; do
-                            $UCIADDLIST network.lan.dns="$dns"
-                        done
-                    fi
-                    ;;
 
-                dhcp)
-                    $UCISET network.lan.proto='dhcp'
-                    $UCIDEL network.lan.ipaddr
-                    $UCIDEL network.lan.netmask
-                    $UCIDEL network.lan.dns
-                    if [ -n "$lan_dns" ]; then
-                        $UCISET network.lan.peerdns='0'
-                        for dns in ${lan_dns}; do
-                            $UCIADDLIST network.lan.dns="$dns"
-                        done
-                    else
-                        $UCIDEL network.lan.peerdns
-                    fi
-                    ;;
-            esac
+            if ! set_lan_addressing; then
+                APPLY_FAILED=1
+                return 1
+            fi
 
             $UCISET firewall.@zone[0].masq='1'
             $UCIDEL firewall.@zone[0].network
@@ -1137,6 +1151,12 @@ configure_network() {
             else
                 setipv6 0
             fi
+            ;;
+
+        *)
+            log "Unknown network mode '$wan_proto'; refusing to apply"
+            APPLY_FAILED=1
+            return 1
             ;;
     esac
 
@@ -1161,11 +1181,7 @@ configure_network() {
             set firewall.lan_to_docker.dest='docker'
 EOF
     fi
-    if [ "$wan_proto" != "siderouter" ] && [ "$setlan" = "1" ]; then
-        [ -n "${lan_ipaddr}" ] && set_ipv4 network.lan.ipaddr "$lan_ipaddr"
-        [ -n "${lan_netmask}" ] && set_ipv4 network.lan.netmask "$lan_netmask"
-    fi
-    
+
     setsynflood
     sethttps "$cfg"
     sed -i "/dhcp_option '6/d" "$CONFIG_DIR/dhcp" 2>/dev/null

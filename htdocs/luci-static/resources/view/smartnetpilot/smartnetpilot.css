@@ -374,20 +374,9 @@ html.dark .snp-app,
 	font-size: 0.9rem;
 }
 
-.snp-section-count {
-	flex: 0 0 auto;
-	padding: 0.4rem 0.7rem;
-	border: 1px solid var(--snp-border);
-	border-radius: 999px;
-	color: var(--snp-muted);
-	font-size: 0.74rem;
-	font-weight: 700;
-	white-space: nowrap;
-}
-
 .snp-mode-grid {
 	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 	gap: clamp(0.85rem, 1.8vw, 1.25rem);
 }
 
@@ -554,26 +543,6 @@ html.dark .snp-app,
 	height: 15px;
 }
 
-.snp-help-strip {
-	display: flex;
-	align-items: flex-start;
-	gap: 0.65rem;
-	margin-top: 1rem;
-	padding: 0.9rem 1rem;
-	border: 1px dashed var(--snp-border-strong);
-	border-radius: var(--snp-radius-md);
-	color: var(--snp-muted);
-	font-size: 0.82rem;
-}
-
-.snp-help-strip svg {
-	width: 18px;
-	height: 18px;
-	flex: 0 0 18px;
-	margin-top: 0.08rem;
-	color: var(--snp-violet);
-}
-
 /* -------------------------------------------------------------------------
  * Configuration view
  * ---------------------------------------------------------------------- */
@@ -585,7 +554,11 @@ html.dark .snp-app,
 }
 
 .snp-config .snp-hero h1 {
-	font-size: clamp(1.3rem, 2.2vw, 1.7rem);
+	font-size: clamp(1.15rem, 1.9vw, 1.45rem);
+}
+
+.snp-config .snp-hero-subtitle {
+	font-size: clamp(0.86rem, 1.35vw, 0.94rem);
 }
 
 .snp-hero-actions {
@@ -954,23 +927,32 @@ html.dark .snp-app,
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
+	justify-content: flex-start;
+	float: none;
 	gap: 0.4rem;
 	padding: 0.45rem;
 	border: 1px solid var(--snp-border);
 	border-radius: 12px;
 	background: var(--snp-surface-2);
+	text-align: left;
 }
 
 .snp-app .cbi-dynlist > .cbi-dynlist-item,
 .snp-app .cbi-dynlist > span {
 	display: inline-flex;
 	align-items: center;
+	justify-content: flex-start;
 	gap: 0.3rem;
 	padding: 0.2rem 0.4rem;
 	border-radius: 8px;
 	background: var(--snp-surface);
 	color: var(--snp-text);
 	font-size: 0.78rem;
+	text-align: left;
+}
+
+.snp-app .cbi-dynlist input[type="text"] {
+	text-align: left;
 }
 
 .snp-app .cbi-page-actions {
