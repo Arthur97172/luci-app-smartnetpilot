@@ -392,7 +392,7 @@ return view.extend({
 	renderChooser: function(currentMode) {
 		var info = modeInfo(currentMode);
 		var root = E('div', { 'class': 'snp-app snp-chooser' + themeClass() });
-		var wifiLabel = this._hasWifi ? (this._wifiSsid || _('Not configured')) : _('No wireless radio');
+		var wifiLabel = this._hasWifi ? (this._wifiSsid || _('Not configured')) : _('No wireless card detected');
 		var httpsLabel = this._initialHttps ? _('Enabled') : _('Disabled');
 
 		this._root = root;

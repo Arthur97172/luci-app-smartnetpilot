@@ -5,7 +5,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: luci-app-smartnetpilot 1.1.2\n"
+"Project-Id-Version: luci-app-smartnetpilot 1.1.3\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-26 00:00+0000\n"
 "PO-Revision-Date: 2026-10-25 23:05+0000\n"
@@ -70,8 +70,8 @@ msgid "Not configured"
 msgstr "未配置"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:395
-msgid "No wireless radio"
-msgstr "无无线网卡"
+msgid "No wireless card detected"
+msgstr "未检测到无线网卡"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:396
 msgid "Enabled"
