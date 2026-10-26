@@ -5,7 +5,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: luci-app-smartnetpilot 1.0.8\n"
+"Project-Id-Version: luci-app-smartnetpilot 1.0.9\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-26 00:00+0000\n"
 "PO-Revision-Date: 2026-10-25 23:05+0000\n"
@@ -82,7 +82,7 @@ msgid "Disabled"
 msgstr "已关闭"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:405
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:516
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:513
 msgid "Smart NetPilot"
 msgstr "智能网络向导"
 
@@ -91,21 +91,19 @@ msgid "Network setup"
 msgstr "网络设置"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:409
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:517
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:514
 msgid "Guided setup"
 msgstr "引导式设置"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:410
-msgid "Quick network setup"
-msgstr "快速完成网络设置"
+msgid "Choose a connection mode and finish network setup quickly."
+msgstr "选择连接方式，快速完成网络设置。"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:411
 msgid ""
-"Choose how this router connects to the internet. Smart NetPilot guides you "
-"through the essential settings and applies them safely."
-msgstr ""
-"选择本路由器接入互联网的方式。智能网络向导会引导你完成关键设置，并安全地应用"
-"配置。"
+"Smart NetPilot guides you through the essential settings and applies them "
+"safely."
+msgstr "智能网络向导会引导你完成关键设置，并安全地应用配置。"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:413
 msgid "Automatic light and dark theme"
@@ -139,131 +137,127 @@ msgstr "无线"
 msgid "HTTPS management"
 msgstr "HTTPS 管理"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:428
-msgid "Choose a connection mode"
-msgstr "选择连接方式"
-
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:463
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:460
 msgid "Current"
 msgstr "当前"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:470
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:467
 #, javascript-format
 msgid "Configure %s"
 msgstr "配置 %s"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:493
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:490
 #, javascript-format
 msgid "Could not save the selected mode. %s"
 msgstr "无法保存所选模式。%s"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:520
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:606
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:517
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:603
 msgid "Configuration"
 msgstr "配置"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:528
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:525
 msgid "Selected mode"
 msgstr "所选模式"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:542
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:671
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:539
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:668
 msgid "Hide advanced settings"
 msgstr "收起高级设置"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:542
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:671
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:539
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:668
 msgid "Advanced settings"
 msgstr "高级设置"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:547
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:544
 msgid "Change mode"
 msgstr "更改模式"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:556
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:553
 msgid "WAN Settings"
 msgstr "WAN 设置"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:558
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:555
 msgid "Wireless Settings"
 msgstr "无线设置"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:558
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:555
 msgid ""
 "Set the wireless name and password. For advanced options, open Network → "
 "Wireless."
 msgstr "设置无线名称和密码。更多高级选项请打开“网络 → 无线”。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:559
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:556
 msgid "Other Settings"
 msgstr "其他设置"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:690
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:687
 msgid "Network Mode"
 msgstr "网络模式"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:707
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:704
 msgid "WAN device"
 msgstr "WAN 设备"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:708
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:705
 msgid "Physical network port used for the internet connection."
 msgstr "用于连接互联网的物理网络端口。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:723
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:720
 msgid "This is the switch CPU port, not a physical network port."
 msgstr "这是交换机 CPU 口，不是物理网络端口。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:728
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:725
 msgid "PPPoE username"
 msgstr "PPPoE 用户名"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:732
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:729
 msgid "PPPoE password"
 msgstr "PPPoE 密码"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:737
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:734
 msgid "WAN address mode"
 msgstr "WAN 地址模式"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:738
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:735
 msgid "Choose how the WAN interface obtains its address."
 msgstr "选择 WAN 接口获取地址的方式。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:740
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:773
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:737
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:770
 msgid "Static IPv4 address"
 msgstr "静态 IPv4 地址"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:741
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:738
 msgid "DHCP client"
 msgstr "DHCP 客户端"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:745
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:742
 msgid "WAN IPv4 address"
 msgstr "WAN IPv4 地址"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:750
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:747
 msgid "WAN IPv4 netmask"
 msgstr "WAN IPv4 子网掩码"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:759
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:756
 msgid "WAN IPv4 gateway"
 msgstr "WAN IPv4 网关"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:764
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:761
 msgid "Custom DNS servers"
 msgstr "自定义 DNS 服务器"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:765
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:762
 msgid "Leave empty to obtain DNS servers automatically."
 msgstr "留空则自动获取 DNS 服务器。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:770
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:767
 msgid "LAN address mode"
 msgstr "LAN 地址模式"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:771
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:768
 msgid ""
 "DHCP client mode takes the LAN address from the upstream router. Check the "
 "upstream lease table to find the new address."
@@ -271,57 +265,57 @@ msgstr ""
 "DHCP 客户端模式下，LAN 地址由上级路由器分配。请在上级路由器的租约列表中查找新"
 "地址。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:774
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:771
 msgid "DHCP client (assigned upstream)"
 msgstr "DHCP 客户端（由上级分配）"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:778
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:775
 msgid "LAN IPv4 address"
 msgstr "LAN IPv4 地址"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:779
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:776
 msgid ""
 "The management address of this router. Choose an address outside the "
 "upstream DHCP pool."
 msgstr "本路由器的管理地址。请选择上级 DHCP 地址池之外的地址。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:785
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:782
 msgid "LAN IPv4 netmask"
 msgstr "LAN IPv4 子网掩码"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:794
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:791
 msgid "LAN IPv4 gateway"
 msgstr "LAN IPv4 网关"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:795
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:792
 msgid ""
 "Side router only: enter the address of the main router. It must be in the "
 "same subnet as this router."
 msgstr "仅旁路由模式：输入主路由器的地址，且必须与本路由器处于同一子网。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:800
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:797
 msgid "LAN DNS servers"
 msgstr "局域网 DNS 服务器"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:801
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:798
 msgid "DNS servers handed to LAN clients. Leave empty to use the defaults."
 msgstr "下发给局域网客户端的 DNS 服务器。留空则使用默认值。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:807
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:804
 msgid "Enable IPv6"
 msgstr "启用 IPv6"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:808
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:805
 msgid ""
 "Configure IPv6 on the WAN and LAN interfaces. Disable it if your ISP does "
 "not provide IPv6."
 msgstr "在 WAN 和 LAN 接口上启用 IPv6。如果你的运营商不提供 IPv6，请关闭。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:812
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:809
 msgid "Disable the LAN DHCP server"
 msgstr "关闭 LAN DHCP 服务器"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:813
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:810
 msgid ""
 "Only one DHCP server should run on a network. Disable this router’s server "
 "when the main router already provides one."
@@ -329,83 +323,83 @@ msgstr ""
 "同一网络中只应运行一个 DHCP 服务器。如果主路由器已提供 DHCP，请关闭本路由器的"
 "服务器。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:817
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:814
 msgid "Advertise a DNS server to LAN clients"
 msgstr "向局域网客户端通告 DNS 服务器"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:818
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:815
 msgid "Force LAN clients to use the DNS server selected below."
 msgstr "强制局域网客户端使用下方选择的 DNS 服务器。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:823
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:820
 msgid "DNS server to advertise"
 msgstr "向外通告的 DNS 服务器"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:824
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:821
 msgid "Use this router’s LAN address"
 msgstr "使用本路由器的 LAN 地址"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:825
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:822
 msgid "Ali DNS: 223.5.5.5"
 msgstr "阿里 DNS：223.5.5.5"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:826
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:823
 msgid "Baidu DNS: 180.76.76.76"
 msgstr "百度 DNS：180.76.76.76"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:827
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:824
 msgid "114 DNS: 114.114.114.114"
 msgstr "114 DNS：114.114.114.114"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:828
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:825
 msgid "Google DNS: 8.8.8.8"
 msgstr "Google DNS：8.8.8.8"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:829
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:826
 msgid "Cloudflare DNS: 1.1.1.1"
 msgstr "Cloudflare DNS：1.1.1.1"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:833
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:830
 msgid "Redirect management to HTTPS"
 msgstr "将管理页面重定向到 HTTPS"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:834
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:831
 msgid "Generate a local certificate and redirect HTTP requests to HTTPS."
 msgstr "生成本地证书，并将 HTTP 请求重定向到 HTTPS。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:840
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:837
 msgid "Wireless name (SSID)"
 msgstr "无线名称（SSID）"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:843
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:840
 msgid "Enter a wireless name"
 msgstr "输入无线名称"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:846
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:843
 msgid "Wireless password"
 msgstr "无线密码"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:850
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:847
 msgid "At least 8 characters"
 msgstr "至少 8 个字符"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:855
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:852
 msgid "Enable SYN-flood protection"
 msgstr "启用 SYN Flood 防护"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:856
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:853
 msgid ""
 "Recommended. Protects the router and LAN clients from SYN-flood attacks."
 msgstr "推荐开启。保护路由器和局域网客户端免受 SYN Flood 攻击。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:883
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:880
 #, javascript-format
 msgid ""
 "The management address will change from %s to %s. The current page will "
 "disconnect and then open the new address."
 msgstr "管理地址将从 %s 变为 %s。当前页面会断开连接，然后打开新地址。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:886
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:883
 msgid ""
 "The LAN interface will become a DHCP client. Its new address is assigned by "
 "the upstream router, so it cannot be predicted. Find the lease in the "
@@ -414,174 +408,174 @@ msgstr ""
 "LAN 接口将变为 DHCP 客户端。其新地址由上级路由器分配，无法预先确定。应用后请"
 "在上级路由器中查找租约。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:891
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:888
 msgid ""
 "Management access will switch to HTTPS after the configuration is applied."
 msgstr "配置应用后，管理页面将切换为 HTTPS。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:892
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:889
 msgid ""
 "HTTPS redirection will be disabled. Management access will return to HTTP "
 "after the configuration is applied."
 msgstr "HTTPS 重定向将被关闭。配置应用后，管理页面将恢复为 HTTP。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:896
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:893
 msgid ""
 "The wireless name or password changed. Wireless clients will need to "
 "reconnect."
 msgstr "无线名称或密码已更改，无线客户端需要重新连接。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:952
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:949
 msgid "Apply cancelled."
 msgstr "已取消应用。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:956
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:953
 #, javascript-format
 msgid "Configuration could not be saved. %s"
 msgstr "配置无法保存。%s"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:969
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:966
 msgid "There are no changes to apply."
 msgstr "没有需要应用的更改。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:975
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:972
 msgid "Could not prepare the configuration apply. Please try again."
 msgstr "无法准备应用配置，请重试。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:993
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:990
 #, javascript-format
 msgid "Apply request failed with status %s."
 msgstr "应用请求失败（状态 %s）。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1029
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1026
 msgid "Configuration applied without confirmation."
 msgstr "配置已应用，未启用自动回滚确认。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1045
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1231
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1042
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1228
 msgid "The configuration could not be applied."
 msgstr "无法应用配置。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1050
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1183
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1223
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1047
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1180
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1220
 msgid "Configuration confirmed. The new settings are kept."
 msgstr "已确认配置，新设置将保留。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1133
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1130
 #, javascript-format
 msgid ""
 "If you do not confirm within %d seconds, the previous configuration is "
 "restored automatically."
 msgstr "如果在 %d 秒内未确认，将自动恢复之前的配置。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1141
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1138
 msgid "Keep configuration"
 msgstr "保留配置"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1149
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1146
 msgid "Roll back now"
 msgstr "立即回滚"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1179
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1176
 msgid "Saving confirmation…"
 msgstr "正在保存确认…"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1190
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1187
 msgid "The device did not confirm the configuration. Please try again."
 msgstr "设备未能确认配置，请重试。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1200
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1214
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1197
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1211
 msgid "Restoring the previous configuration…"
 msgstr "正在恢复之前的配置…"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1245
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1242
 msgid ""
 "The new settings were applied. Keep them, or the previous configuration will "
 "be restored automatically."
 msgstr "新设置已应用。请保留它们，否则将自动恢复之前的配置。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1247
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1244
 msgid "Rollback in"
 msgstr "回滚倒计时"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1249
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1246
 msgid "s"
 msgstr "秒"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1255
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1252
 #, javascript-format
 msgid "New management address: %s"
 msgstr "新的管理地址：%s"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1258
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1255
 msgid "Confirm the new configuration"
 msgstr "确认新配置"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1299
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1296
 msgid "Reconnect to the previous address"
 msgstr "重新连接到之前的地址"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1308
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1305
 msgid "Close"
 msgstr "关闭"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1311
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1308
 msgid "Restoring the previous configuration"
 msgstr "正在恢复之前的配置"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1314
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1311
 msgid ""
 "The previous network settings are being restored. The connection will be "
 "interrupted; reconnect to the router once it is done."
 msgstr "正在恢复之前的网络设置。连接会中断，完成后请重新连接到路由器。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1315
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1312
 #, javascript-format
 msgid "Previous management address: %s"
 msgstr "之前的管理地址：%s"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1333
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1330
 msgid "Cancel"
 msgstr "取消"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1342
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1339
 msgid "Apply without confirmation"
 msgstr "不确认，直接应用"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1351
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1348
 msgid "Apply and disconnect"
 msgstr "应用并断开连接"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1351
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1348
 msgid "Continue and apply"
 msgstr "继续并应用"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1354
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1351
 msgid "What will happen"
 msgstr "将会发生什么"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1361
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1358
 msgid "Review before applying"
 msgstr "应用前确认"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1365
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1362
 msgid ""
 "These changes affect how you reach this device. Review them before "
 "continuing."
 msgstr "这些更改会影响你访问此设备的方式，请确认后再继续。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1369
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1366
 msgid "New management address"
 msgstr "新的管理地址"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1373
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1370
 msgid ""
 "“Apply without confirmation” skips the automatic rollback. If the new "
 "address is wrong, the device may become unreachable."
 msgstr "“不确认，直接应用”会跳过自动回滚。如果新地址有误，设备可能无法访问。"
 
-#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1501
+#: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:1498
 msgid "Configuration saved. Use “Save & Apply” to make it active."
 msgstr "配置已保存。使用“保存并应用”使其生效。"

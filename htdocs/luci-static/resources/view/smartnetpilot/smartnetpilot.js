@@ -407,8 +407,8 @@ return view.extend({
 					])
 				]),
 				E('div', { 'class': 'snp-kicker' }, _('Guided setup')),
-				E('h1', {}, _('Quick network setup')),
-				E('p', { 'class': 'snp-hero-subtitle' }, _('Choose how this router connects to the internet. Smart NetPilot guides you through the essential settings and applies them safely.')),
+				E('h1', {}, _('Choose a connection mode and finish network setup quickly.')),
+				E('p', { 'class': 'snp-hero-subtitle' }, _('Smart NetPilot guides you through the essential settings and applies them safely.')),
 				E('div', { 'class': 'snp-hero-meta' }, [
 					E('span', { 'class': 'snp-chip' }, [ E('span', { 'class': 'snp-chip-dot' }), _('Automatic light and dark theme') ]),
 					E('span', { 'class': 'snp-chip' }, [ icon('shield'), _('Validated before apply') ]),
@@ -424,9 +424,6 @@ return view.extend({
 		]));
 
 		root.appendChild(E('section', { 'class': 'snp-section' }, [
-			E('div', { 'class': 'snp-section-head' }, [
-				E('h2', {}, _('Choose a connection mode'))
-			]),
 			E('div', { 'class': 'snp-mode-grid' }, [
 				this._modeCard('pppoe', currentMode),
 				this._modeCard('dhcp', currentMode),
