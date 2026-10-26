@@ -26,6 +26,8 @@ DHCP server, the advertised DNS server, HTTPS redirection and the **Other
 Settings** section; click **Hide advanced settings** to return to the focused
 view.
 
+![Smart NetPilot start page (Argon theme)](screenshot.png)
+
 ## Installation
 
 ### From Releases
