@@ -146,7 +146,11 @@ Checks performed before anything is written:
 - **WAN port**: the explicitly chosen port wins, then the existing
   `network.wan` `device`/`ifname`, then the DSA `wan` port. If none is usable
   the apply is refused; it never guesses a port or rewrites the `br-lan` bridge
-  port list.
+  port list. Candidates are checked against the `network` section of
+  `/etc/board.json`: switch CPU conduits such as `eth0` on a DSA device are
+  skipped and the code falls back to `wan`. VLAN sub-interfaces like `eth0.1`
+  and `usb*` / `wwan*` are unaffected, and when `board.json` is unavailable
+  this check is skipped.
 
 What gets written:
 
@@ -200,6 +204,10 @@ the current LAN address and to warn about management-address changes.
   settings.
 - An apply is refused when no usable WAN port can be determined; the code never
   guesses a port or overwrites the LAN bridge.
+- `/etc/board.json` separates physical ports from switch CPU conduits: choosing
+  a CPU port such as `eth0` as the WAN interface is flagged in the UI before
+  saving, and the server skips it and falls back to `wan`. Devices without
+  `board.json` keep the previous behavior.
 - Relevant configuration files are backed up before every apply and restored
   if the commit fails.
 - After a successful apply, a 120-second confirmation window restores the

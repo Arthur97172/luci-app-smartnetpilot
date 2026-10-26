@@ -97,7 +97,7 @@ make package/luci-app-smartnetpilot/compile V=s
 
 - **模式**：`wan_proto` 为空或不是 `pppoe` / `dhcp` / `siderouter` 时直接拒绝应用（全新安装的默认配置就是这种状态）。
 - **必填项**：PPPoE 缺账号或密码、静态 WAN / 静态 LAN 的地址或掩码非法时拒绝应用。
-- **WAN 口**：优先使用你指定的端口，其次沿用现有 `network.wan` 的 `device`/`ifname`，再次尝试 DSA 的 `wan` 端口；都不可用时拒绝应用，绝不猜测端口，也不会改写 `br-lan` 的桥接端口列表。
+- **WAN 口**：优先使用你指定的端口，其次沿用现有 `network.wan` 的 `device`/`ifname`，再次尝试 DSA 的 `wan` 端口；都不可用时拒绝应用，绝不猜测端口，也不会改写 `br-lan` 的桥接端口列表。候选端口会对照 `/etc/board.json` 的 `network` 段校验，交换机 CPU 通道（例如 DSA 设备的 `eth0`）会被跳过并回退到 `wan`；`eth0.1` 这类 VLAN 子接口以及 `usb*`、`wwan*` 不受影响，读不到 `board.json` 时不做这项判断。
 
 写入内容：
 
@@ -127,6 +127,7 @@ make package/luci-app-smartnetpilot/compile V=s
 - 安装、升级、开机都不会应用配置；只有向导页面的「保存并应用」会，且需要一次性请求标记。
 - 未选择接入方式或必填项不完整时拒绝应用，不会把默认配置翻译成错误的网络设置。
 - 无法确定可用 WAN 口时拒绝应用，不会猜测端口或覆盖 LAN 桥接。
+- 用 `/etc/board.json` 区分物理端口和交换机 CPU 通道：把 `eth0` 这类 CPU 口选作 WAN 时，前端在保存前提示，服务端也会跳过它并回退到 `wan`；设备上没有 `board.json` 时保持原有行为。
 - 每次应用前自动备份相关配置，提交失败立即恢复。
 - 应用成功后有 120 秒确认期；未确认就自动恢复应用前的快照（`network`、`firewall`、`dhcp`、`wireless`、`system`、`uhttpd`、`nginx`、`smartnetpilot`），避免新地址不可达后设备失联。
 - 「不确认，直接应用」会跳过倒计时和自动回滚，配置立即生效；如果新地址有误，设备可能无法再访问，需要通过串口、SSH、TTL 或恢复模式处理。
