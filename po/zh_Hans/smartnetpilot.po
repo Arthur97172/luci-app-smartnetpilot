@@ -5,7 +5,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: luci-app-smartnetpilot 1.0.10\n"
+"Project-Id-Version: luci-app-smartnetpilot 1.0.11\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-26 00:00+0000\n"
 "PO-Revision-Date: 2026-10-25 23:05+0000\n"
@@ -33,7 +33,7 @@ msgstr "使用运营商提供的宽带账号和密码拨号。当线路需要 PP
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:67
 msgid "DHCP Client"
-msgstr "连接现有路由器"
+msgstr "现有路由器"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:68
 msgid "Existing router"
