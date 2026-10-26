@@ -16,16 +16,6 @@ The package lives under **Network → Smart NetPilot**
 | DHCP Client | The router sits behind a modem or an existing gateway and gets its WAN address automatically (a static address is possible too) |
 | Side Router | Keep the existing main router and use this device for additional services |
 
-After choosing a mode, the page shows only the fields that mode needs —
-**WAN Settings** for PPPoE and DHCP, or the LAN address for side-router mode —
-plus the shared **Wireless Settings**. The section buttons (WAN / Wireless /
-Other settings) sit at the bottom of the **Guided setup** card at the top of
-the page, so the mode summary is not repeated below. Click **Advanced
-settings** in the top right to reveal every option, including IPv6, the LAN
-DHCP server, the advertised DNS server, HTTPS redirection and the **Other
-Settings** section; click **Hide advanced settings** to return to the focused
-view.
-
 ![Smart NetPilot start page (Argon theme)](screenshot.png)
 
 ## Installation
