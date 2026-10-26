@@ -5,7 +5,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: luci-app-smartnetpilot 1.0.4\n"
+"Project-Id-Version: luci-app-smartnetpilot 1.0.5\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-26 00:00+0000\n"
 "PO-Revision-Date: 2026-10-25 23:05+0000\n"
@@ -88,8 +88,8 @@ msgid "Guided setup"
 msgstr "引导式设置"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:402
-msgid "Set up your network with confidence"
-msgstr "放心完成网络设置"
+msgid "Quick network setup"
+msgstr "快速完成网络设置"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:403
 msgid "Choose how this router connects to the internet. Smart NetPilot guides you through the essential settings and applies them safely."

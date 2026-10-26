@@ -407,7 +407,7 @@ return view.extend({
 					])
 				]),
 				E('div', { 'class': 'snp-kicker' }, _('Guided setup')),
-				E('h1', {}, _('Set up your network with confidence')),
+				E('h1', {}, _('Quick network setup')),
 				E('p', { 'class': 'snp-hero-subtitle' }, _('Choose how this router connects to the internet. Smart NetPilot guides you through the essential settings and applies them safely.')),
 				E('div', { 'class': 'snp-hero-meta' }, [
 					E('span', { 'class': 'snp-chip' }, [ E('span', { 'class': 'snp-chip-dot' }), _('Automatic light and dark theme') ]),
