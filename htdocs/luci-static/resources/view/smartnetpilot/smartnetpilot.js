@@ -427,6 +427,10 @@ return view.extend({
 				this._modeCard('pppoe', currentMode),
 				this._modeCard('dhcp', currentMode),
 				this._modeCard('siderouter', currentMode)
+			]),
+			E('div', { 'class': 'snp-help-strip' }, [
+				icon('info'),
+				E('span', {}, _('Not sure which to choose? Pick “PPPoE Dial-up” if you need to sign in with the broadband account and password from your ISP; pick “DHCP Client” if another router already provides Wi-Fi.'))
 			])
 		]));
 

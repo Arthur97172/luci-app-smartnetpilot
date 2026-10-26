@@ -538,6 +538,26 @@ html.dark .snp-app,
 	height: 15px;
 }
 
+.snp-help-strip {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.65rem;
+	margin-top: 1rem;
+	padding: 0.9rem 1rem;
+	border: 1px dashed var(--snp-border-strong);
+	border-radius: var(--snp-radius-md);
+	color: var(--snp-muted);
+	font-size: 0.82rem;
+}
+
+.snp-help-strip svg {
+	width: 18px;
+	height: 18px;
+	flex: 0 0 18px;
+	margin-top: 0.08rem;
+	color: var(--snp-violet);
+}
+
 /* -------------------------------------------------------------------------
  * Configuration view
  * ---------------------------------------------------------------------- */
