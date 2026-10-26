@@ -759,6 +759,13 @@ html.dark .snp-app,
 	display: block;
 }
 
+/* LuCI hides fields whose dependency is not met with the theme's .hidden
+   class, which a plain `.cbi-value { display: grid }` would override. Keep
+   the mode-specific filtering authoritative. */
+.snp-form-shell .cbi-value.hidden {
+	display: none;
+}
+
 .snp-form-shell .cbi-value.snp-value-wide > .cbi-value-title {
 	display: none;
 }
