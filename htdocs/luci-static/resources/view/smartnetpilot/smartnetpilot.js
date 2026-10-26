@@ -98,10 +98,18 @@ var appliedListenerBound = false;
 var themeListenerBound = false;
 
 function icon(name, className) {
-	return E('span', {
-		'class': className || '',
-		'innerHTML': ICONS[name] || ''
-	});
+	// E() sets unknown properties with setAttribute(), so innerHTML has to be
+	// assigned on the node itself for the SVG markup to be parsed.
+	var node = E('span', { 'class': className || '' });
+	node.innerHTML = ICONS[name] || '';
+	return node;
+}
+
+// Argon draws a 2rem band under its header that overlaps the first row of the
+// content area; the view adds top spacing on that theme only.
+function themeClass() {
+	var header = document.querySelector('.main-right > header');
+	return (header && header.classList.contains('bg-primary')) ? ' snp-on-argon' : '';
 }
 
 function stripCidr(value) {
@@ -383,7 +391,7 @@ return view.extend({
 
 	renderChooser: function(currentMode) {
 		var info = modeInfo(currentMode);
-		var root = E('div', { 'class': 'snp-app snp-chooser' });
+		var root = E('div', { 'class': 'snp-app snp-chooser' + themeClass() });
 		var wifiLabel = this._hasWifi ? (this._wifiSsid || _('Not configured')) : _('No wireless radio');
 		var httpsLabel = this._initialHttps ? _('Enabled') : _('Disabled');
 
@@ -497,7 +505,7 @@ return view.extend({
 	renderConfig: function(mode, requestedTab) {
 		var info = modeInfo(mode);
 		var self = this;
-		var root = E('div', { 'class': 'snp-app snp-config' });
+		var root = E('div', { 'class': 'snp-app snp-config' + themeClass() });
 
 		this._root = root;
 		this._mode = mode;

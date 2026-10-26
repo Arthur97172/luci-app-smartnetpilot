@@ -55,6 +55,16 @@
 	box-sizing: border-box;
 }
 
+/*
+ * Argon draws a 2rem band below its header (header::after) that overlaps the
+ * first row of the content area. Without extra space the hero card covers the
+ * band and looks like it crosses the theme's top line. The view adds this
+ * class in JavaScript after checking the theme's header.
+ */
+.snp-app.snp-on-argon {
+	padding-top: 2.25rem;
+}
+
 /* -------------------------------------------------------------------------
  * Dark theme tokens
  * ---------------------------------------------------------------------- */
