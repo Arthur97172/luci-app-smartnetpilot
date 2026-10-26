@@ -92,7 +92,10 @@ The built packages end up in `bin/packages/<arch>/base/`.
    advertised to clients and HTTPS redirection; the **Other Settings** section also
    holds SYN-flood protection.
 5. Click **Save & Apply** at the bottom of the page. Use **Save** first if you
-   only want to stage the changes.
+   only want to stage the changes. If the form still holds unsaved edits,
+   **Change mode** in the header asks first: **Discard and go back** throws the
+   edits away and returns to the mode chooser, while **Cancel** stays on the
+   page.
 6. If a change affects how you reach the device — the management address, the
    LAN DHCP role, the HTTPS setting, or the wireless name/password — a
    confirmation dialog lists what will happen before anything is applied. When
