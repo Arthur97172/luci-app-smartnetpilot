@@ -411,6 +411,7 @@ return view.extend({
 				E('div', { 'class': 'snp-hero-meta' }, [
 					E('span', { 'class': 'snp-chip' }, [ E('span', { 'class': 'snp-chip-dot' }), _('Automatic light and dark theme') ]),
 					E('span', { 'class': 'snp-chip' }, [ icon('shield'), _('Validated before apply') ]),
+					E('span', { 'class': 'snp-chip' }, [ icon('refresh'), _('Rollback within 120 s') ]),
 					E('span', { 'class': 'snp-chip' }, [ icon('wifi'), _('IPv4 and IPv6') ])
 				])
 			]),
@@ -430,7 +431,7 @@ return view.extend({
 			]),
 			E('div', { 'class': 'snp-help-strip' }, [
 				icon('info'),
-				E('span', {}, _('Not sure which to choose? Pick “PPPoE Dial-up” if you need to sign in with the broadband account and password from your ISP; pick “DHCP Client” if another router already provides Wi-Fi.'))
+				E('span', {}, _('Not sure which to choose? Pick “PPPoE Dial-up” if you need to sign in with the broadband account and password from your ISP; pick “DHCP Client” if this device joins an existing network as an auxiliary or extension node.'))
 			])
 		]));
 
