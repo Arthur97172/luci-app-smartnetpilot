@@ -1,3 +1,7 @@
 # Local only: design documents and acceptance notes are not part of the
 # published package.
 /docs/
+
+# Local only: regression tests are run from the working tree and are not
+# published with the package.
+/tests/
