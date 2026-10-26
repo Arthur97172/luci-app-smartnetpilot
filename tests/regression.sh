@@ -58,6 +58,14 @@ assert_function_lacks() {
     fi
 }
 
+assert_line() {
+    if printf '%s\n' "$1" | grep -qx -- "$2"; then
+        ok "$3"
+    else
+        fail "$3 (got: $(printf '%s' "$1" | tr '\n' ' '))"
+    fi
+}
+
 # Fake uci used by resolve_wan_interface().
 uci() {
     case "$*" in
@@ -373,6 +381,133 @@ else
     ok "refuses to guess eth0 on a DSA device without a wan port"
 fi
 
+# Field report: a DSA device exposes only the CPU conduit eth0 (no physical
+# eth0) and names its ports lan2..lan4/wan. Applying must leave br-lan alone
+# instead of rebuilding its ports from the /sys/class/net enumeration.
+mkdir -p "$TMP/net3/eth0" "$TMP/net3/lan2" "$TMP/net3/lan3" "$TMP/net3/lan4" \
+         "$TMP/net3/wan" "$TMP/net3/wlan0"
+DSA_OUT=$(INIT="$INIT" TMP="$TMP" sh -c '
+    set -u
+    . "$INIT"
+    log() { :; }
+    SYS_CLASS_NET="$TMP/net3"
+    CONFIG_DIR="$TMP/config"
+    RECORD="$TMP/uci-dsa"
+    : > "$RECORD"
+
+    uci() {
+        [ "$1" = "-q" ] && shift
+        case "$1" in
+            get) return 1 ;;
+            set|delete|add|add_list|commit|revert|batch)
+                printf "%s\n" "$*" >> "$RECORD"
+                ;;
+            *) return 1 ;;
+        esac
+    }
+
+    config_load() { :; }
+    config_get() {
+        case "$3" in
+            wan_proto)   eval "$1=siderouter" ;;
+            lan_proto)   eval "$1=static" ;;
+            lan_ipaddr)  eval "$1=192.168.10.1" ;;
+            lan_netmask) eval "$1=255.255.255.0" ;;
+            ipv6|lan_dhcp|setlan|dnsset|synflood|https) eval "$1=0" ;;
+            *)           eval "$1=" ;;
+        esac
+    }
+    config_foreach() { configure_network default; }
+    backup_configs() { mkdir -p "$TMP/backup-dsa"; echo "$TMP/backup-dsa"; }
+
+    configure_network default
+    echo "failed=$APPLY_FAILED"
+    cat "$RECORD"
+')
+case "$DSA_OUT" in
+    *failed=0*)
+        if printf '%s\n' "$DSA_OUT" | grep -q 'ports'; then
+            fail "a DSA device with only the eth0 CPU port keeps its bridge ports"
+        else
+            ok "a DSA device with only the eth0 CPU port keeps its bridge ports"
+        fi
+        ;;
+    *)
+        fail "a DSA device with only the eth0 CPU port keeps its bridge ports (apply failed)"
+        ;;
+esac
+
+# board.json is the authoritative list of physical ports: a DSA CPU conduit
+# (eth0) is absent from it while a real x86 NIC is present.
+mkdir -p "$TMP/net4/eth0" "$TMP/net4/lan1" "$TMP/net4/lan2" "$TMP/net4/wan"
+cat > "$TMP/fake-jshn.sh" <<'EOF'
+json_init() { :; }
+json_load_file() { [ -r "$1" ]; }
+json_select() { [ "$1" = ".." ] || JSON_KEY="$1"; return 0; }
+json_get_keys() { eval "$1='lan wan'"; }
+json_get_values() {
+    case "$BOARD_KIND:$JSON_KEY" in
+        dsa:lan) eval "$1='lan1 lan2'" ;;
+        x86:lan) eval "$1='eth0'" ;;
+        *)       eval "$1=''" ;;
+    esac
+}
+json_get_var() {
+    case "$BOARD_KIND:$JSON_KEY:$2" in
+        dsa:lan:device) eval "$1='br-lan'" ;;
+        dsa:wan:device) eval "$1='wan'" ;;
+        x86:lan:device) eval "$1='br-lan'" ;;
+        x86:wan:device) eval "$1='eth1'" ;;
+        *)              eval "$1=''" ;;
+    esac
+}
+EOF
+printf '%s\n' '{"network":{}}' > "$TMP/board.json"
+
+board_probe() {
+    INIT="$INIT" TMP="$TMP" BOARD_KIND="$1" BOARD_PATH="$2" sh -c '
+        set -u
+        . "$INIT"
+        log() { :; }
+        SYS_CLASS_NET="$TMP/net4"
+        BOARD_JSON="$BOARD_PATH"
+        JSHN_LIB="$TMP/fake-jshn.sh"
+        BOARD_PORTS=""
+        BOARD_PORTS_KNOWN=0
+        uci() {
+            case "$*" in
+                *"get network.wan.device"*) printf "%s" "${FAKE_WAN_DEVICE:-}" ;;
+                *"get network.wan.ifname"*) printf "%s" "${FAKE_WAN_IFNAME:-}" ;;
+                *) return 1 ;;
+            esac
+        }
+        board_interface_is_port eth0; printf "eth0=%s\n" "$?"
+        board_interface_is_port lan1; printf "lan1=%s\n" "$?"
+        board_interface_is_port wan;  printf "wan=%s\n" "$?"
+        wan_interface="eth0"
+        resolve_wan_interface; printf "explicit_rc=%s explicit=%s\n" "$?" "$wan_interface"
+        wan_interface=""
+        FAKE_WAN_DEVICE="eth0"
+        resolve_wan_interface; printf "existing_rc=%s existing=%s\n" "$?" "$wan_interface"
+    '
+}
+
+DSA_BOARD=$(board_probe dsa "$TMP/board.json")
+assert_line "$DSA_BOARD" "eth0=1" "rejects the DSA CPU conduit as a WAN port"
+assert_line "$DSA_BOARD" "lan1=0" "accepts a DSA lan port"
+assert_line "$DSA_BOARD" "wan=0" "accepts the DSA wan port"
+assert_line "$DSA_BOARD" "explicit_rc=0 explicit=wan" "an explicit CPU port falls back to wan"
+assert_line "$DSA_BOARD" "existing_rc=0 existing=wan" "an existing CPU port WAN falls back to wan"
+
+X86_BOARD=$(board_probe x86 "$TMP/board.json")
+assert_line "$X86_BOARD" "eth0=0" "a real eth0 is a board port"
+assert_line "$X86_BOARD" "lan1=1" "rejects an interface the board does not declare"
+assert_line "$X86_BOARD" "explicit_rc=0 explicit=eth0" "a real eth0 stays selectable"
+
+UNKNOWN_BOARD=$(board_probe unknown "$TMP/missing-board.json")
+assert_line "$UNKNOWN_BOARD" "eth0=2" "cannot judge without board.json"
+assert_line "$UNKNOWN_BOARD" "explicit_rc=0 explicit=eth0" "keeps the old behaviour without board.json"
+
 # ------------------------------------------------ two-phase apply / rollback
 mkdir -p "$CONFIG_DIR"
 ORIG_NET="config interface 'lan'
@@ -613,6 +748,9 @@ rollback_if_pending "$TOK" >/dev/null 2>&1
 # --------------------------------------------------------------- static checks
 assert_file_lacks "$INIT" 'network.@device[0].ports' "never rewrites br-lan ports"
 assert_file_lacks "$INIT" 'wan_proto=$(uci' "never infers the mode from network.wan.proto"
+assert_file_contains "$INIT" 'board_interface_is_port' "init consults board.json for physical ports"
+assert_file_contains "$RPC" 'physical_ports' "rpcd exposes the board port list"
+assert_file_contains "$JS" 'physical_ports' "the UI validates the WAN port against board ports"
 assert_file_contains "$INIT" 'consume_apply_request' "reload is gated by an explicit apply request"
 assert_file_contains "$INIT" 'EXTRA_COMMANDS="prepare_apply' "the rollback actions are registered"
 assert_file_contains "$INIT" 'start_rollback_waiter' "a detached timeout waiter is started"

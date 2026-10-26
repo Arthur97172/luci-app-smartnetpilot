@@ -11,6 +11,10 @@ LOCK_TIMEOUT=300
 APPLY_MARKER=/tmp/smartnetpilot.apply
 APPLY_MARKER_MAX_AGE=300
 SYS_CLASS_NET=${SYS_CLASS_NET:-/sys/class/net}
+BOARD_JSON=${BOARD_JSON:-/etc/board.json}
+JSHN_LIB=${JSHN_LIB:-/usr/share/libubox/jshn.sh}
+BOARD_PORTS=""
+BOARD_PORTS_KNOWN=0
 
 # 配置回滚状态（两阶段提交）。快照只放在 /tmp，重启后自动失效。
 CONFIG_DIR=${CONFIG_DIR:-/etc/config}
@@ -61,6 +65,82 @@ validate_ip() {
 
 validate_interface() {
     [ -n "$1" ] && [ -d "$SYS_CLASS_NET/$1" ] && return 0 || return 1
+}
+
+# /etc/board.json 的 network 段是 OpenWrt 对硬件拓扑的权威描述。
+# DSA/交换机的物理端口（lan1..、wan、eth0.1..）会出现在 ports/device/ifname
+# 中，CPU 通道（例如 DSA 的 eth0）不会出现，因此可以用它把两者区分开。
+# 读不到或解析失败时返回 2，调用方必须保持旧行为，避免误杀。
+load_board_ports() {
+    local keys key values device
+
+    BOARD_PORTS=""
+    BOARD_PORTS_KNOWN=0
+    [ -r "$BOARD_JSON" ] || return 2
+    [ -r "$JSHN_LIB" ] || return 2
+
+    . "$JSHN_LIB"
+    json_init
+    json_load_file "$BOARD_JSON" 2>/dev/null || return 2
+    json_select network 2>/dev/null || return 2
+    json_get_keys keys 2>/dev/null || return 2
+
+    for key in $keys; do
+        json_select "$key" 2>/dev/null || continue
+
+        values=""
+        json_get_values values ports 2>/dev/null
+        BOARD_PORTS="$BOARD_PORTS $values"
+
+        for device in device ifname; do
+            values=""
+            json_get_var values "$device" 2>/dev/null
+            case "$values" in
+                ''|br-*|@*) ;;
+                *) BOARD_PORTS="$BOARD_PORTS $values" ;;
+            esac
+        done
+
+        json_select ..
+    done
+
+    BOARD_PORTS=$(printf '%s\n' $BOARD_PORTS | sed '/^$/d' | sort -u | tr '\n' ' ')
+    [ -n "$BOARD_PORTS" ] && BOARD_PORTS_KNOWN=1
+    return 0
+}
+
+# 0 = 板载物理端口，1 = board.json 明确不是，2 = 无法判断
+board_interface_is_port() {
+    local iface="$1" p
+
+    [ "$BOARD_PORTS_KNOWN" = "1" ] || load_board_ports >/dev/null 2>&1
+    [ "$BOARD_PORTS_KNOWN" = "1" ] || return 2
+
+    for p in $BOARD_PORTS; do
+        [ "$p" = "$iface" ] && return 0
+    done
+    return 1
+}
+
+# 交换机 CPU 通道（例如 DSA 的 eth0）不能作为 WAN 口使用。
+# 只检查纯 ethN / enXXX 名称；eth0.1 这类 VLAN、usb*、wwan* 不受影响。
+wan_candidate_usable() {
+    local iface="$1" rc
+
+    case "$iface" in
+        eth[0-9]|eth[0-9][0-9]|eth[0-9][0-9][0-9]) ;;
+        en[op][0-9]*)
+            case "$iface" in *[!0-9a-z]*) return 0 ;; esac
+            ;;
+        *) return 0 ;;
+    esac
+
+    board_interface_is_port "$iface"
+    rc=$?
+    [ "$rc" = "1" ] || return 0
+
+    log "Ignoring WAN interface '$iface': it is a switch CPU port, not a physical port"
+    return 1
 }
 
 # 用户在向导里点击“保存并应用”时，由 rpcd 创建该标记。
@@ -805,16 +885,16 @@ resolve_wan_interface() {
     local existing candidate
 
     if [ -n "$wan_interface" ]; then
-        if validate_interface "$wan_interface"; then
+        if validate_interface "$wan_interface" && wan_candidate_usable "$wan_interface"; then
             return 0
         fi
-        log "Ignoring configured WAN interface '$wan_interface' (not present)"
+        log "Ignoring configured WAN interface '$wan_interface'"
         wan_interface=""
     fi
 
     existing=$(uci -q get network.wan.device)
     [ -z "$existing" ] && existing=$(uci -q get network.wan.ifname)
-    if validate_interface "$existing"; then
+    if validate_interface "$existing" && wan_candidate_usable "$existing"; then
         wan_interface="$existing"
         return 0
     fi
@@ -827,7 +907,7 @@ resolve_wan_interface() {
     # 传统 swconfig / x86 设备：只有在不存在 DSA lan* 端口时才尝试 eth1/usb0。
     if ! ls "$SYS_CLASS_NET"/lan[0-9]* >/dev/null 2>&1; then
         for candidate in eth1 usb0; do
-            if validate_interface "$candidate"; then
+            if validate_interface "$candidate" && wan_candidate_usable "$candidate"; then
                 wan_interface="$candidate"
                 return 0
             fi

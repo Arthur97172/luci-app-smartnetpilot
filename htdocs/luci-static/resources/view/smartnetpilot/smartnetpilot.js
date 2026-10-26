@@ -45,6 +45,13 @@ var callRollbackApply = rpc.declare({
 	params: [ 'token' ]
 });
 
+// Board-declared physical ports; used to keep the switch CPU port out of the
+// WAN device list.
+var callPhysicalPorts = rpc.declare({
+	object: 'luci.smartnetpilot',
+	method: 'physical_ports'
+});
+
 // Seconds the device waits for a confirmation before restoring the snapshot.
 var APPLY_TIMEOUT = 120;
 
@@ -307,13 +314,16 @@ return view.extend({
 			uci.load('network'),
 			uci.load('smartnetpilot'),
 			L.resolveDefault(callGetIp(), { ip: '' }),
-			L.resolveDefault(callApplyStatus(), null)
+			L.resolveDefault(callApplyStatus(), null),
+			L.resolveDefault(callPhysicalPorts(), null)
 		]);
 	},
 
 	render: function(data) {
 		var self = this;
 		var applyStatus = data[5] || null;
+		var boardPorts = (data[6] && data[6].known && Array.isArray(data[6].ports))
+			? data[6].ports : null;
 		var devices = data[0] || [];
 		var lanIp = (data[4] && data[4].ip) ? data[4].ip : stripCidr(uci.get('network', 'lan', 'ipaddr'));
 		var networkProto = uci.get('network', 'wan', 'proto');
@@ -334,6 +344,7 @@ return view.extend({
 			ap = wifiSections[0];
 
 		this._devices = devices;
+		this._boardPorts = boardPorts;
 		this._lanIp = lanIp || '';
 		this._wanFace = uci.get('network', 'wan', 'device') ||
 			uci.get('network', 'wan', 'ifname') ||
@@ -670,6 +681,19 @@ return view.extend({
 		o.default = this._wanFace || '';
 		o.nobridges = false;
 		o.rmempty = false;
+		o.validate = function(section_id, value) {
+			if (!value || !self._boardPorts || !self._boardPorts.length)
+				return true;
+
+			if (!/^eth[0-9]+$/.test(value) && !/^en[op][0-9]/.test(value))
+				return true;
+
+			for (var i = 0; i < self._boardPorts.length; i++)
+				if (self._boardPorts[i] === value)
+					return true;
+
+			return _('This is the switch CPU port, not a physical network port.');
+		};
 		o.depends({ 'wan_proto': 'pppoe', 'setlan': '1' });
 		o.depends({ 'wan_proto': 'dhcp', 'setlan': '1' });
 

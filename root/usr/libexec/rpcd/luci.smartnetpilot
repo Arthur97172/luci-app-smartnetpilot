@@ -20,6 +20,60 @@ get_lan_ip() {
     echo "$lan_ip"
 }
 
+# 从 /etc/board.json 收集板载物理端口。CPU 通道（如 DSA 的 eth0）不会出现在
+# 这里，UI 用它来阻止把交换机 CPU 口选成 WAN 口。读不到时 known=false。
+collect_board_ports() {
+    local keys key values device
+
+    BOARD_PORTS=""
+    BOARD_PORTS_KNOWN=0
+    [ -r /etc/board.json ] || return 1
+
+    json_init
+    json_load_file /etc/board.json 2>/dev/null || return 1
+    json_select network 2>/dev/null || return 1
+    json_get_keys keys 2>/dev/null || return 1
+
+    for key in $keys; do
+        json_select "$key" 2>/dev/null || continue
+
+        values=""
+        json_get_values values ports 2>/dev/null
+        BOARD_PORTS="$BOARD_PORTS $values"
+
+        for device in device ifname; do
+            values=""
+            json_get_var values "$device" 2>/dev/null
+            case "$values" in
+                ''|br-*|@*) ;;
+                *) BOARD_PORTS="$BOARD_PORTS $values" ;;
+            esac
+        done
+
+        json_select ..
+    done
+
+    BOARD_PORTS=$(printf '%s\n' $BOARD_PORTS | sed '/^$/d' | sort -u | tr '\n' ' ')
+    [ -n "$BOARD_PORTS" ] && BOARD_PORTS_KNOWN=1
+    return 0
+}
+
+physical_ports() {
+    local input p
+
+    read -r input
+    collect_board_ports
+
+    json_init
+    json_add_array ports
+    for p in $BOARD_PORTS; do
+        json_add_string "" "$p"
+    done
+    json_close_array
+    json_add_boolean known "$BOARD_PORTS_KNOWN"
+    json_dump
+}
+
 run_init() {
     [ -x "$INIT" ] || return 1
     "$INIT" "$@"
@@ -183,6 +237,8 @@ list)
     json_init
     json_add_object "get_ip"
     json_close_object
+    json_add_object "physical_ports"
+    json_close_object
     json_add_object "arm_apply"
     json_close_object
     json_add_object "apply_status"
@@ -203,6 +259,9 @@ call)
         json_add_string "ip" "$(get_lan_ip)"
         json_add_boolean "success" 1
         json_dump
+        ;;
+    physical_ports)
+        physical_ports
         ;;
     arm_apply)
         arm_apply
