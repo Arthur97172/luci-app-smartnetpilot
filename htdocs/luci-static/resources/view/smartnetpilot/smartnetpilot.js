@@ -764,11 +764,6 @@ return view.extend({
 		o = s.taboption('wansetup', form.DynamicList, 'wan_dns', _('Custom DNS servers'),
 			_('Leave empty to obtain DNS servers automatically.'));
 		o.datatype = 'ip4addr';
-		o.value('223.5.5.5', _('Ali DNS: 223.5.5.5'));
-		o.value('180.76.76.76', _('Baidu DNS: 180.76.76.76'));
-		o.value('114.114.114.114', _('114 DNS: 114.114.114.114'));
-		o.value('8.8.8.8', _('Google DNS: 8.8.8.8'));
-		o.value('1.1.1.1', _('Cloudflare DNS: 1.1.1.1'));
 		o.depends('wan_proto', 'pppoe');
 		o.depends('wan_proto', 'dhcp');
 
@@ -807,11 +802,6 @@ return view.extend({
 		o.default = '223.5.5.5';
 		o.datatype = 'ip4addr';
 		o.rmempty = false;
-		o.value('223.5.5.5', _('Ali DNS: 223.5.5.5'));
-		o.value('180.76.76.76', _('Baidu DNS: 180.76.76.76'));
-		o.value('114.114.114.114', _('114 DNS: 114.114.114.114'));
-		o.value('8.8.8.8', _('Google DNS: 8.8.8.8'));
-		o.value('1.1.1.1', _('Cloudflare DNS: 1.1.1.1'));
 		o.depends('wan_proto', 'siderouter');
 
 		o = s.taboption('wansetup', form.Flag, 'ipv6', _('Enable IPv6'),
