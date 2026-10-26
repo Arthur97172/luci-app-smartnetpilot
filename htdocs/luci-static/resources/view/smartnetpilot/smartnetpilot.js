@@ -86,6 +86,7 @@ var ICONS = {
 	topology: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="6" height="5" rx="1.5"/><rect x="15" y="3" width="6" height="5" rx="1.5"/><rect x="9" y="16" width="6" height="5" rx="1.5"/><path d="M6 8v3.5h12V8"/><path d="M12 11.5V16"/></svg>',
 	arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M14 7l5 5-5 5"/></svg>',
 	refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 10-2.3 5.7"/><path d="M20 4v7h-7"/></svg>',
+	sliders: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9"/><path d="M17 6h3"/><circle cx="15" cy="6" r="2"/><path d="M4 12h3"/><path d="M11 12h9"/><circle cx="9" cy="12" r="2"/><path d="M4 18h9"/><path d="M17 18h3"/><circle cx="15" cy="18" r="2"/></svg>',
 	check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>',
 	alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.7L2.3 17a2 2 0 001.7 3h16a2 2 0 001.7-3l-8-13.3a2 2 0 00-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
 	wifi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8.8a15 15 0 0120 0"/><path d="M5 12.4a10.5 10.5 0 0114 0"/><path d="M8.5 16a5.5 5.5 0 017 0"/><circle cx="12" cy="19.5" r="1"/></svg>',
@@ -496,7 +497,10 @@ return view.extend({
 	renderConfig: function(mode, requestedTab) {
 		var info = modeInfo(mode);
 		var self = this;
-		var root = E('div', { 'class': 'snp-app snp-config' + themeClass() });
+		var showAdvanced = (requestedTab === 'othersetup');
+		var root = E('div', {
+			'class': 'snp-app snp-config' + themeClass() + (showAdvanced ? ' snp-show-advanced' : '')
+		});
 
 		this._root = root;
 		this._mode = mode;
@@ -521,6 +525,18 @@ return view.extend({
 						E('strong', {}, _('Selected mode')),
 						E('span', {}, info.short)
 					])
+				]),
+				E('button', {
+					'type': 'button',
+					'class': 'snp-btn snp-btn-ghost snp-advanced-toggle',
+					'aria-expanded': showAdvanced ? 'true' : 'false',
+					'click': function(ev) {
+						self._toggleAdvanced(ev.currentTarget);
+					}
+				}, [
+					icon('sliders'),
+					E('span', { 'class': 'snp-advanced-label' },
+						showAdvanced ? _('Hide advanced settings') : _('Advanced settings'))
 				]),
 				E('a', {
 					'class': 'snp-btn snp-btn-ghost',
@@ -583,6 +599,25 @@ return view.extend({
 
 			pane.insertBefore(overview, pane.firstChild);
 		}
+	},
+
+	_toggleAdvanced: function(button) {
+		var root = this._root;
+		if (!root)
+			return;
+
+		var show = !root.classList.contains('snp-show-advanced');
+
+		root.classList.toggle('snp-show-advanced', show);
+		button.setAttribute('aria-expanded', show ? 'true' : 'false');
+
+		var label = button.querySelector('.snp-advanced-label');
+		if (label)
+			label.textContent = show ? _('Hide advanced settings') : _('Advanced settings');
+
+		var active = root.querySelector('.cbi-tabmenu li.cbi-tab[data-tab]');
+		if (!show && active && active.getAttribute('data-tab') === 'othersetup')
+			this._activateTab(root, 'wansetup');
 	},
 
 	_activateTab: function(root, tab) {

@@ -16,8 +16,12 @@ The package lives under **Network → Smart NetPilot**
 | DHCP Client | The router sits behind a modem or an existing gateway and gets its WAN address automatically (a static address is possible too) |
 | Side Router | Keep the existing main router and use this device for additional services |
 
-After choosing a mode you get four tabs: **Network Mode**, **WAN Settings**,
-**Wireless Settings** and **Other Settings**.
+After choosing a mode, the page shows only the fields that mode needs —
+**WAN Settings** for PPPoE and DHCP, or the LAN address for side-router mode —
+plus the shared **Wireless Settings**. Click **Advanced settings** in the top
+right to reveal every option, including IPv6, the LAN DHCP server, the
+advertised DNS server, HTTPS redirection and the **Other Settings** tab; click
+**Hide advanced settings** to return to the focused view.
 
 ## Installation
 
@@ -81,8 +85,9 @@ The built packages end up in `bin/packages/<arch>/base/`.
 3. To change Wi-Fi, fill in the SSID and password under **Wireless Settings**
    (WPA2-PSK, at least 8 characters). Leave them empty to keep the current
    wireless configuration untouched.
-4. **Other Settings** toggles IPv6, the LAN DHCP server, the DNS server
-   advertised to clients, HTTPS redirection and SYN-flood protection.
+4. **Advanced settings** reveals IPv6, the LAN DHCP server, the DNS server
+   advertised to clients and HTTPS redirection; the **Other Settings** tab also
+   holds SYN-flood protection.
 5. Click **Save & Apply** at the bottom of the page. Use **Save** first if you
    only want to stage the changes.
 6. If a change affects how you reach the device — the management address, the
@@ -97,8 +102,9 @@ The built packages end up in `bin/packages/<arch>/base/`.
    click **Roll back now**). Choose **Apply without confirmation** in the
    dialog to keep the new settings immediately, with no automatic rollback.
 
-> In side-router mode, turn on **Disable the LAN DHCP server** when the main
-> router already runs one: a network should only have a single DHCP server.
+> In side-router mode, open **Advanced settings** and turn on **Disable the LAN
+> DHCP server** when the main router already runs one: a network should only
+> have a single DHCP server.
 
 ## How it works
 
