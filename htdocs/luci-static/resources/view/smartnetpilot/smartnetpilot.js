@@ -495,6 +495,9 @@ return view.extend({
 	},
 
 	renderConfig: function(mode, requestedTab) {
+		if (requestedTab === 'modesetup')
+			requestedTab = 'wansetup';
+
 		var info = modeInfo(mode);
 		var self = this;
 		var showAdvanced = (requestedTab === 'othersetup');
@@ -550,7 +553,6 @@ return view.extend({
 		s.addremove = false;
 		s.anonymous = true;
 
-		s.tab('modesetup', _('Network Mode'));
 		s.tab('wansetup', _('WAN Settings'));
 		if (this._hasWifi)
 			s.tab('wifisetup', _('Wireless Settings'), _('Set the wireless name and password. For advanced options, open Network → Wireless.'));
@@ -570,35 +572,88 @@ return view.extend({
 		return m.render().then(function(mapNode) {
 			dom.append(shell, mapNode);
 
-			self._decorateForm(root, mode);
+			self._decorateForm(root);
 			self._activateTab(root, requestedTab || 'wansetup');
+			self._buildHeroTabs(root);
 			window.setTimeout(syncTheme, 120);
 
 			return root;
 		});
 	},
 
-	_decorateForm: function(root, mode) {
+	_decorateForm: function(root) {
 		var proto = root.querySelector('select[id$=".wan_proto"], input[id$=".wan_proto"]');
 		if (proto) {
 			var row = proto.closest('.cbi-value');
 			if (row)
 				row.classList.add('snp-hidden');
 		}
+	},
 
-		var pane = root.querySelector('[data-tab="modesetup"]');
-		if (pane && !pane.querySelector('.snp-mode-overview')) {
-			var info = modeInfo(mode);
-			var overview = E('div', { 'class': 'snp-mode-overview ' + info.accent }, [
-				icon(info.icon, 'snp-mode-icon'),
-				E('div', { 'class': 'snp-mode-overview-copy' }, [
-					E('strong', {}, info.title),
-					E('span', {}, info.description)
-				])
-			]);
+	// The hero already carries the mode summary, so the form's own tab menu is
+	// hidden and mirrored as pills inside the hero. Clicking a pill drives the
+	// original (hidden) tab link, which keeps LuCI's tab logic authoritative.
+	_buildHeroTabs: function(root) {
+		var menu = root.querySelector('.cbi-tabmenu');
+		var hero = root.querySelector('.snp-hero');
+		if (!menu || !hero || hero.querySelector('.snp-hero-tabs'))
+			return;
 
-			pane.insertBefore(overview, pane.firstChild);
-		}
+		var self = this;
+		var nav = E('nav', {
+			'class': 'snp-hero-tabs',
+			'role': 'tablist',
+			'aria-label': _('Configuration')
+		});
+
+		menu.querySelectorAll('li[data-tab]').forEach(function(li) {
+			var tab = li.getAttribute('data-tab');
+			var link = li.querySelector('a');
+			if (!tab || !link || li.style.display === 'none')
+				return;
+
+			nav.appendChild(E('button', {
+				'type': 'button',
+				'class': 'snp-tab-btn',
+				'data-tab': tab,
+				'role': 'tab',
+				'aria-selected': 'false',
+				'click': function(ev) {
+					self._activateTab(root, tab);
+					self._syncHeroTabs(root);
+					ev.currentTarget.blur();
+				}
+			}, link.textContent));
+		});
+
+		hero.appendChild(nav);
+		this._syncHeroTabs(root);
+	},
+
+	_syncHeroTabs: function(root) {
+		var menu = root.querySelector('.cbi-tabmenu');
+		if (!menu)
+			return;
+
+		root.querySelectorAll('.snp-hero-tabs .snp-tab-btn').forEach(function(btn) {
+			var li = menu.querySelector('li[data-tab="' + btn.getAttribute('data-tab') + '"]');
+			var active = !!(li && li.classList.contains('cbi-tab'));
+			btn.classList.toggle('is-active', active);
+			btn.setAttribute('aria-selected', active ? 'true' : 'false');
+		});
+	},
+
+	// The original tab menu is hidden, so its per-tab error badge is invisible
+	// too. After a failed save, reveal the first pane that holds an invalid
+	// field instead of leaving the user on a tab that looks fine.
+	_showFirstErrorTab: function(root) {
+		var invalid = root.querySelector('.cbi-input-invalid');
+		var pane = invalid ? invalid.closest('[data-tab]') : null;
+		if (!pane)
+			return;
+
+		this._activateTab(root, pane.getAttribute('data-tab'));
+		this._syncHeroTabs(root);
 	},
 
 	_toggleAdvanced: function(button) {
@@ -618,6 +673,8 @@ return view.extend({
 		var active = root.querySelector('.cbi-tabmenu li.cbi-tab[data-tab]');
 		if (!show && active && active.getAttribute('data-tab') === 'othersetup')
 			this._activateTab(root, 'wansetup');
+
+		this._syncHeroTabs(root);
 	},
 
 	_activateTab: function(root, tab) {
@@ -630,7 +687,7 @@ return view.extend({
 	},
 
 	_addModeFields: function(s, mode) {
-		var o = s.taboption('modesetup', form.ListValue, 'wan_proto', _('Network Mode'));
+		var o = s.taboption('wansetup', form.ListValue, 'wan_proto', _('Network Mode'));
 		o.default = mode;
 		o.value('dhcp', MODES.dhcp.title);
 		o.value('pppoe', MODES.pppoe.title);
@@ -1445,14 +1502,20 @@ return view.extend({
 
 		return view.prototype.handleSave.call(this, ev).then(function(result) {
 			if (self._mode && self._root) {
-				self._decorateForm(self._root, self._mode);
+				self._decorateForm(self._root);
 				self._activateTab(self._root, activeTab || 'wansetup');
+				self._syncHeroTabs(self._root);
 			}
 
 			if (!self._applying)
 				self._toast(_('Configuration saved. Use “Save & Apply” to make it active.'), 'success');
 
 			return result;
+		}, function(err) {
+			if (self._root)
+				self._showFirstErrorTab(self._root);
+
+			throw err;
 		});
 	},
 

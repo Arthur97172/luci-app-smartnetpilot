@@ -18,10 +18,13 @@ The package lives under **Network → Smart NetPilot**
 
 After choosing a mode, the page shows only the fields that mode needs —
 **WAN Settings** for PPPoE and DHCP, or the LAN address for side-router mode —
-plus the shared **Wireless Settings**. Click **Advanced settings** in the top
-right to reveal every option, including IPv6, the LAN DHCP server, the
-advertised DNS server, HTTPS redirection and the **Other Settings** tab; click
-**Hide advanced settings** to return to the focused view.
+plus the shared **Wireless Settings**. The section buttons (WAN / Wireless /
+Other settings) sit at the bottom of the **Guided setup** card at the top of
+the page, so the mode summary is not repeated below. Click **Advanced
+settings** in the top right to reveal every option, including IPv6, the LAN
+DHCP server, the advertised DNS server, HTTPS redirection and the **Other
+Settings** section; click **Hide advanced settings** to return to the focused
+view.
 
 ## Installation
 
@@ -74,7 +77,7 @@ The built packages end up in `bin/packages/<arch>/base/`.
 
 1. Open **Network → Smart NetPilot** and pick a mode on the start page. The
    mode currently in use is marked **Current**.
-2. Fill in the **WAN Settings** tab according to that mode:
+2. Open **WAN Settings** in the top card and fill it in according to that mode:
    - **PPPoE Dial-up**: broadband username and password; you may pick the WAN
      port and add custom DNS servers.
    - **DHCP Client**: let WAN obtain an address automatically, or choose
@@ -86,7 +89,7 @@ The built packages end up in `bin/packages/<arch>/base/`.
    (WPA2-PSK, at least 8 characters). Leave them empty to keep the current
    wireless configuration untouched.
 4. **Advanced settings** reveals IPv6, the LAN DHCP server, the DNS server
-   advertised to clients and HTTPS redirection; the **Other Settings** tab also
+   advertised to clients and HTTPS redirection; the **Other Settings** section also
    holds SYN-flood protection.
 5. Click **Save & Apply** at the bottom of the page. Use **Save** first if you
    only want to stage the changes.
@@ -271,7 +274,7 @@ the current LAN address and to warn about management-address changes.
 - `dnsmasq` and the system firewall (`firewall4` / `firewall3`), both ship
   with OpenWrt
 - The wireless settings need `/etc/config/wireless` and the `wifi` command; on
-  a device without wireless the tab is hidden automatically
+  a device without wireless the **Wireless Settings** button is hidden automatically
 
 ## License
 
