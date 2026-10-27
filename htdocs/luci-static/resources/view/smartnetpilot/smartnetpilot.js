@@ -58,21 +58,18 @@ var APPLY_TIMEOUT = 120;
 var MODES = {
 	pppoe: {
 		title: _('PPPoE Dial-up'),
-		short: _('Broadband account'),
 		description: _('Dial up with the broadband account and password supplied by your ISP. Choose this when the line requires PPPoE authentication.'),
 		accent: 'snp-accent-violet',
 		icon: 'key'
 	},
 	dhcp: {
 		title: _('DHCP Client'),
-		short: _('Existing router'),
 		description: _('Obtain an address automatically from an upstream modem or router. This is the usual choice for a new router behind an existing gateway.'),
 		accent: 'snp-accent-cyan',
 		icon: 'link'
 	},
 	siderouter: {
 		title: _('Side Router'),
-		short: _('Keep the main router'),
 		description: _('Keep the existing main router and use this device for additional services. LAN clients use this device as their gateway.'),
 		accent: 'snp-accent-emerald',
 		icon: 'topology'
@@ -407,7 +404,7 @@ return view.extend({
 					])
 				]),
 				E('div', { 'class': 'snp-kicker' }, _('Guided setup')),
-				E('h1', {}, _('Use Smart NetPilot to finish network setup quickly and safely with guidance.')),
+				E('h1', {}, _('Choose the type of network setup you need and follow the wizard to finish the configuration quickly.')),
 				E('div', { 'class': 'snp-hero-meta' }, [
 					E('span', { 'class': 'snp-chip' }, [ E('span', { 'class': 'snp-chip-dot' }), _('Automatic light and dark theme') ]),
 					E('span', { 'class': 'snp-chip' }, [ icon('shield'), _('Validated before apply') ]),
@@ -468,7 +465,7 @@ return view.extend({
 				E('p', { 'class': 'snp-mode-desc' }, info.description)
 			]),
 			E('div', { 'class': 'snp-mode-foot' }, [
-				E('span', {}, _('Configure %s').format(info.short)),
+				E('span', {}, _('Configure %s').format(info.title)),
 				icon('arrow', 'snp-mode-arrow')
 			])
 		]);
@@ -527,7 +524,7 @@ return view.extend({
 					icon(info.icon, 'snp-mode-icon'),
 					E('div', { 'class': 'snp-mode-summary-text' }, [
 						E('strong', {}, _('Selected mode')),
-						E('span', {}, info.short)
+						E('span', {}, info.title)
 					])
 				]),
 				E('button', {
@@ -548,7 +545,7 @@ return view.extend({
 					'click': function(ev) {
 						self._handleChangeMode(ev, ev.currentTarget.href);
 					}
-				}, [ icon('refresh'), _('Change mode') ])
+				}, [ icon('refresh'), _('Back to home') ])
 			])
 		]));
 
