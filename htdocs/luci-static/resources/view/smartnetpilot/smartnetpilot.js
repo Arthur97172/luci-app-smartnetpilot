@@ -64,13 +64,13 @@ var MODES = {
 	},
 	dhcp: {
 		title: _('DHCP Client'),
-		description: _('Obtain an address automatically from an upstream modem or router. This is the usual choice for a new router behind an existing gateway.'),
+		description: _('Obtain an address automatically from an upstream modem or router. Choose this when the new router joins an existing network as an extension node.'),
 		accent: 'snp-accent-cyan',
 		icon: 'link'
 	},
 	siderouter: {
 		title: _('Side Router'),
-		description: _('Keep the existing main router and use this device for additional services. LAN clients use this device as their gateway.'),
+		description: _('Keep the existing main router and use this device for additional services. Choose this when LAN clients need to use this device as their gateway.'),
 		accent: 'snp-accent-emerald',
 		icon: 'topology'
 	}

@@ -5,7 +5,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: luci-app-smartnetpilot 1.1.6\n"
+"Project-Id-Version: luci-app-smartnetpilot 1.1.7\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-26 00:00+0000\n"
 "PO-Revision-Date: 2026-10-26 00:00+0000\n"
@@ -29,7 +29,7 @@ msgid "DHCP Client"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:67
-msgid "Obtain an address automatically from an upstream modem or router. This is the usual choice for a new router behind an existing gateway."
+msgid "Obtain an address automatically from an upstream modem or router. Choose this when the new router joins an existing network as an extension node."
 msgstr ""
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:72
@@ -37,7 +37,7 @@ msgid "Side Router"
 msgstr ""
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:73
-msgid "Keep the existing main router and use this device for additional services. LAN clients use this device as their gateway."
+msgid "Keep the existing main router and use this device for additional services. Choose this when LAN clients need to use this device as their gateway."
 msgstr ""
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:275

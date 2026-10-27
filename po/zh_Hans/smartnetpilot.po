@@ -5,7 +5,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: luci-app-smartnetpilot 1.1.6\n"
+"Project-Id-Version: luci-app-smartnetpilot 1.1.7\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-10-26 00:00+0000\n"
 "PO-Revision-Date: 2026-10-25 23:05+0000\n"
@@ -30,16 +30,16 @@ msgid "DHCP Client"
 msgstr "现有路由器"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:67
-msgid "Obtain an address automatically from an upstream modem or router. This is the usual choice for a new router behind an existing gateway."
-msgstr "从上级光猫或路由器自动获取地址。这是新路由器接在现有网关之后的常见选择。"
+msgid "Obtain an address automatically from an upstream modem or router. Choose this when the new router joins an existing network as an extension node."
+msgstr "从上级光猫或路由器自动获取地址。新路由器作为扩展节点接入现有网络时选择此项。"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:72
 msgid "Side Router"
 msgstr "旁路由"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:73
-msgid "Keep the existing main router and use this device for additional services. LAN clients use this device as their gateway."
-msgstr "保留现有主路由器，将此设备用于附加服务。局域网客户端将把此设备作为网关。"
+msgid "Keep the existing main router and use this device for additional services. Choose this when LAN clients need to use this device as their gateway."
+msgstr "保留现有主路由器，将此设备用于附加服务。局域网客户端需要把此设备作为网关时选择此项。"
 
 #: htdocs/luci-static/resources/view/smartnetpilot/smartnetpilot.js:275
 msgid "Configuration applied successfully."
