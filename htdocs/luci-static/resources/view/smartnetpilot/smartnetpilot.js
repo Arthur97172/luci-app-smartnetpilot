@@ -500,7 +500,8 @@ return view.extend({
 		var self = this;
 		var showAdvanced = (requestedTab === 'othersetup');
 		var root = E('div', {
-			'class': 'snp-app snp-config' + themeClass() + (showAdvanced ? ' snp-show-advanced' : '')
+			'class': 'snp-app snp-config snp-mode-' + mode + themeClass() +
+				(showAdvanced ? ' snp-show-advanced' : '')
 		});
 
 		this._root = root;
@@ -701,8 +702,39 @@ return view.extend({
 		};
 	},
 
+	// PPPoE and DHCP pages show the LAN settings the router currently uses, so
+	// the user edits real values instead of whatever the wizard stored last
+	// time. Side-router mode keeps its own stored values.
+	_lanLive: function(option) {
+		switch (option) {
+			case 'lan_ipaddr':
+				return stripCidr(uci.get('network', 'lan', 'ipaddr')) || '';
+			case 'lan_netmask':
+				return uci.get('network', 'lan', 'netmask') || '';
+			case 'lan_gateway':
+				return uci.get('network', 'lan', 'gateway') || '';
+			case 'lan_dns':
+				return L.toArray(uci.get('network', 'lan', 'dns'));
+		}
+
+		return '';
+	},
+
+	_useLiveLan: function(o, option) {
+		var self = this;
+
+		o.cfgvalue = function() {
+			return self._lanLive(option);
+		};
+		o.forcewrite = true;
+		// An empty field means "keep the current setting"; the server only
+		// writes the entries that actually differ from the live configuration.
+		o.rmempty = true;
+	},
+
 	_addWanFields: function(s) {
 		var self = this;
+		var side = (this._mode === 'siderouter');
 		var o;
 
 		o = s.taboption('wansetup', widgets.DeviceSelect, 'wan_interface', _('WAN device'),
@@ -782,6 +814,10 @@ return view.extend({
 		o.datatype = 'ip4addr';
 		o.rmempty = false;
 		o.depends({ 'wan_proto': 'siderouter', 'lan_proto': 'static' });
+		o.depends('wan_proto', 'pppoe');
+		o.depends('wan_proto', 'dhcp');
+		if (!side)
+			this._useLiveLan(o, 'lan_ipaddr');
 
 		o = s.taboption('wansetup', form.Value, 'lan_netmask', _('LAN IPv4 netmask'));
 		o.default = uci.get('smartnetpilot', 'default', 'lan_netmask') || '255.255.255.0';
@@ -791,12 +827,21 @@ return view.extend({
 		o.value('255.0.0.0');
 		o.rmempty = false;
 		o.depends({ 'wan_proto': 'siderouter', 'lan_proto': 'static' });
+		o.depends('wan_proto', 'pppoe');
+		o.depends('wan_proto', 'dhcp');
+		if (!side)
+			this._useLiveLan(o, 'lan_netmask');
 
 		o = s.taboption('wansetup', form.Value, 'lan_gateway', _('LAN IPv4 gateway'),
-			_('Side router only: enter the address of the main router. It must be in the same subnet as this router.'));
+			side
+				? _('Side router only: enter the address of the main router. It must be in the same subnet as this router.')
+				: _('Optional. It must be in the same subnet as the LAN address above. Only set it when the LAN needs an explicit gateway.'));
 		o.datatype = 'ip4addr';
 		o.rmempty = false;
 		o.depends({ 'wan_proto': 'siderouter', 'lan_proto': 'static' });
+		o.depends('wan_proto', 'dhcp');
+		if (!side)
+			this._useLiveLan(o, 'lan_gateway');
 
 		o = s.taboption('wansetup', form.DynamicList, 'lan_dns', _('LAN DNS servers'),
 			_('DNS servers handed to LAN clients. Leave empty to use the defaults.'));
@@ -804,6 +849,10 @@ return view.extend({
 		o.datatype = 'ip4addr';
 		o.rmempty = false;
 		o.depends('wan_proto', 'siderouter');
+		o.depends('wan_proto', 'pppoe');
+		o.depends('wan_proto', 'dhcp');
+		if (!side)
+			this._useLiveLan(o, 'lan_dns');
 
 		o = s.taboption('wansetup', form.Flag, 'ipv6', _('Enable IPv6'),
 			_('Configure IPv6 on the WAN and LAN interfaces. Disable it if your ISP does not provide IPv6.'));
@@ -870,7 +919,10 @@ return view.extend({
 		var initialIp = initial.lanIp || window.location.hostname || '';
 		var lanMode = (mode === 'siderouter');
 		var lanDhcp = lanMode && lanProto === 'dhcp';
-		var lanApplies = lanMode && lanProto === 'static';
+		// PPPoE and DHCP pages can change the LAN addressing from the advanced
+		// settings, so such a change gets the same confirmation, redirect and
+		// rollback window as the side-router page.
+		var lanApplies = !lanDhcp && !!lanIp;
 		var desiredIp = lanApplies ? lanIp : null;
 		var ipChanged = !lanDhcp && desiredIp && initialIp && desiredIp !== initialIp;
 		var httpsChanged = https !== !!initial.https;
