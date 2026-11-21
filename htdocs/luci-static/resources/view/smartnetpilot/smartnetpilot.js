@@ -143,6 +143,14 @@ var WIFI_BANDS = {
 	'60g': '60 GHz'
 };
 
+// iwinfo reports the band as a number; UCI uses the suffix shown above.
+var WIFI_BAND_NUMBERS = {
+	'2g': 2,
+	'5g': 5,
+	'6g': 6,
+	'60g': 60
+};
+
 // Used when iwinfo has no frequency list for the radio.
 function fallbackChannels(band) {
 	var list = [];
@@ -177,6 +185,46 @@ function fallbackHtmodes(band) {
 	return [ 'HT20', 'HT40', 'VHT20', 'VHT40', 'VHT80', 'VHT160',
 		'HE20', 'HE40', 'HE80', 'HE160',
 		'EHT20', 'EHT40', 'EHT80', 'EHT160', 'EHT320' ];
+}
+
+// Some iwinfo builds leave out "band", so fall back to the frequency.
+function freqBand(entry) {
+	var band = parseInt(entry.band, 10);
+
+	if (!isNaN(band))
+		return band;
+
+	var mhz = parseInt(entry.mhz, 10);
+
+	if (isNaN(mhz))
+		return null;
+
+	if (mhz >= 2400 && mhz < 2500)
+		return 2;
+	if (mhz >= 4900 && mhz < 5925)
+		return 5;
+	if (mhz >= 5925 && mhz < 7125)
+		return 6;
+	if (mhz >= 57000)
+		return 60;
+
+	return null;
+}
+
+// iwinfo exposes flag names such as "no_ir" in an array; older builds use
+// plain booleans.
+function freqNoIr(entry) {
+	if (entry.no_ir)
+		return true;
+
+	var flags = entry.flags;
+
+	if (Array.isArray(flags))
+		for (var i = 0; i < flags.length; i++)
+			if (String(flags[i]).replace(/[^a-z0-9_]/g, '') === 'no_ir')
+				return true;
+
+	return false;
 }
 
 // OpenWrt stores automatic channel selection as either "auto" or "0"
@@ -1081,16 +1129,24 @@ return view.extend({
 		return fallback;
 	},
 
-	// Regulatory channel list reported by iwinfo. Channels that forbid
-	// initiating radiation cannot carry an AP, so they are left out.
+	// Regulatory channel list reported by iwinfo. The report covers every
+	// radio on the device, so entries are narrowed to this radio's band.
+	// Channels that forbid initiating radiation cannot carry an AP, so they
+	// are left out.
 	_wifiChannelChoices: function(list, band) {
 		var choices = [];
 		var seen = {};
+		var wanted = WIFI_BAND_NUMBERS[band];
 
 		for (var i = 0; i < (list || []).length; i++) {
 			var entry = list[i];
 
-			if (!entry || entry.no_ir || entry.channel == null)
+			if (!entry || entry.channel == null || freqNoIr(entry))
+				continue;
+
+			var entryBand = freqBand(entry);
+
+			if (wanted != null && entryBand != null && entryBand !== wanted)
 				continue;
 
 			var value = String(entry.channel);
