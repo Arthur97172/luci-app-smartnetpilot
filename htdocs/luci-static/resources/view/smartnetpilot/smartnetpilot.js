@@ -1145,7 +1145,10 @@ return view.extend({
 				ssid: ap ? (ap.ssid || '') : '',
 				key: ap ? (ap.key || '') : '',
 				// An interface without an encryption option is an open network.
-				encryption: ap ? (ap.encryption || 'none') : 'psk2',
+				// A radio without an AP gets a band-appropriate default for the
+				// access point that applying an SSID will create.
+				encryption: ap ? (ap.encryption || 'none') : (band === '6g' ? 'sae' : 'psk2'),
+				hasAp: !!ap,
 				apName: ap ? ap['.name'] : ('default_' + name),
 				channel: channel,
 				htmode: section.htmode || 'auto',
@@ -1410,11 +1413,14 @@ return view.extend({
 
 		o.validate = function(section_id, value) {
 			var encryption = uci.get('smartnetpilot', 'default', prefix + 'encryption') || radio.encryption;
+			var ssid = uci.get('smartnetpilot', 'default', prefix + 'ssid') || radio.ssid;
 
 			if (!wifiEncryptionNeedsKey(encryption))
 				return true;
 
-			if (!value && !radio.key)
+			// A radio without an AP is only configured once an SSID is given,
+			// so an untouched radio does not need a password.
+			if (!value && !radio.key && (radio.hasAp || ssid))
 				return _('This encryption mode requires a password.');
 
 			return true;

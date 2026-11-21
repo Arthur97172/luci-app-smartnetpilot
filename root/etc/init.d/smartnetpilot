@@ -1100,7 +1100,10 @@ validate_wireless_overrides() {
                 sae|sae-mixed|psk2|psk-mixed)
                     cur_key=
                     [ -n "$ap" ] && cur_key=$(uci -q get "wireless.${ap}.key")
-                    if [ -z "$key" ] && [ -z "$cur_key" ]; then
+                    # A radio without an AP is only configured once an SSID
+                    # is given, so an untouched radio does not need a key.
+                    if [ -z "$key" ] && [ -z "$cur_key" ] &&
+                       { [ -n "$ap" ] || [ -n "$ssid" ]; }; then
                         log "Encryption '$encryption' on '$radio' requires a password; refusing to apply"
                         return 1
                     fi
