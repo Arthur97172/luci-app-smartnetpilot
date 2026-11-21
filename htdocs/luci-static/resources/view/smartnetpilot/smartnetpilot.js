@@ -151,6 +151,54 @@ var WIFI_BAND_NUMBERS = {
 	'60g': 60
 };
 
+// Encryption modes hostapd offers on these radios. WPA2 and WPA are not
+// allowed on 6 GHz, so that band only lists the two WPA3 modes.
+var WIFI_ENCRYPTIONS = [
+	{ value: 'sae', label: _('WPA3-Personal (SAE)'), key: true },
+	{ value: 'sae-mixed', label: _('WPA2/WPA3 mixed'), key: true },
+	{ value: 'psk2', label: _('WPA2-Personal (PSK)'), key: true },
+	{ value: 'psk-mixed', label: _('WPA/WPA2 mixed'), key: true },
+	{ value: 'owe', label: _('Enhanced Open (OWE)'), key: false },
+	{ value: 'none', label: _('Open (no encryption)'), key: false }
+];
+
+function wifiEncryptionChoices(band, current) {
+	var choices = [];
+	var i;
+
+	for (i = 0; i < WIFI_ENCRYPTIONS.length; i++) {
+		var item = WIFI_ENCRYPTIONS[i];
+
+		if (band === '6g' && item.value !== 'sae' && item.value !== 'owe')
+			continue;
+
+		choices.push(item);
+	}
+
+	// Keep a mode this list does not know about (for example WPA2-Enterprise)
+	// so the form shows the live value instead of replacing it silently.
+	if (current) {
+		var known = false;
+
+		for (i = 0; i < choices.length; i++)
+			if (choices[i].value === current)
+				known = true;
+
+		if (!known)
+			choices.push({ value: current, label: current, key: true });
+	}
+
+	return choices;
+}
+
+function wifiEncryptionNeedsKey(value) {
+	for (var i = 0; i < WIFI_ENCRYPTIONS.length; i++)
+		if (WIFI_ENCRYPTIONS[i].value === value)
+			return WIFI_ENCRYPTIONS[i].key;
+
+	return true;
+}
+
 // Used when iwinfo has no frequency list for the radio.
 function fallbackChannels(band) {
 	var list = [];
@@ -704,7 +752,7 @@ return view.extend({
 
 		s.tab('wansetup', _('WAN Settings'));
 		if (this._hasWifi)
-			s.tab('wifisetup', _('Wireless Settings'), _('Set the wireless name, password, channel and bandwidth of each radio.'));
+			s.tab('wifisetup', _('Wireless Settings'), _('Set the wireless name, encryption, password, channel and bandwidth of each radio.'));
 		s.tab('othersetup', _('Other Settings'));
 
 		this._addModeFields(s, mode);
@@ -810,7 +858,7 @@ return view.extend({
 		// owns the rejected field instead of a hidden one.
 		var row = invalid.closest('[data-field]');
 		var field = row ? row.getAttribute('data-field') : '';
-		var match = /\.wifi_(.+)_(ssid|key|channel|htmode)$/.exec(field);
+		var match = /\.wifi_(.+)_(ssid|encryption|key|channel|htmode)$/.exec(field);
 
 		if (match) {
 			var radios = this._wifiRadios || [];
@@ -1096,6 +1144,8 @@ return view.extend({
 				disabled: section.disabled === '1' || section.disabled === true,
 				ssid: ap ? (ap.ssid || '') : '',
 				key: ap ? (ap.key || '') : '',
+				// An interface without an encryption option is an open network.
+				encryption: ap ? (ap.encryption || 'none') : 'psk2',
 				apName: ap ? ap['.name'] : ('default_' + name),
 				channel: channel,
 				htmode: section.htmode || 'auto',
@@ -1288,7 +1338,7 @@ return view.extend({
 		radios.forEach(function(radio) {
 			var active = (radio.slug === selected.slug);
 
-			[ 'ssid', 'key', 'channel', 'htmode' ].forEach(function(field) {
+			[ 'ssid', 'encryption', 'key', 'channel', 'htmode' ].forEach(function(field) {
 				var row = pane.querySelector('.cbi-value[data-field="cbid.smartnetpilot.default.' +
 					wifiOption(radio.slug, field) + '"]');
 
@@ -1337,11 +1387,38 @@ return view.extend({
 			return radio.ssid;
 		});
 
+		var encryptionChoices = wifiEncryptionChoices(radio.band, radio.encryption);
+
+		o = s.taboption('wifisetup', form.ListValue, prefix + 'encryption',
+			_('Encryption'), _('Encryption modes supported by this radio.'));
+		for (var c = 0; c < encryptionChoices.length; c++)
+			o.value(encryptionChoices[c].value, encryptionChoices[c].label);
+		this._useLive(o, function() {
+			return radio.encryption;
+		});
+
 		o = s.taboption('wifisetup', form.Value, prefix + 'key',
 			_('Wireless password'), _('Leaving this field empty keeps the current password.'));
 		o.password = true;
 		o.datatype = 'wpakey';
 		o.placeholder = _('At least 8 characters');
+
+		// Open and OWE networks carry no password, so their row is hidden.
+		for (var k = 0; k < WIFI_ENCRYPTIONS.length; k++)
+			if (WIFI_ENCRYPTIONS[k].key)
+				o.depends(prefix + 'encryption', WIFI_ENCRYPTIONS[k].value);
+
+		o.validate = function(section_id, value) {
+			var encryption = uci.get('smartnetpilot', 'default', prefix + 'encryption') || radio.encryption;
+
+			if (!wifiEncryptionNeedsKey(encryption))
+				return true;
+
+			if (!value && !radio.key)
+				return _('This encryption mode requires a password.');
+
+			return true;
+		};
 		this._useLive(o, function() {
 			return radio.key;
 		});
@@ -1381,11 +1458,14 @@ return view.extend({
 		for (var i = 0; i < radios.length; i++) {
 			var radio = radios[i];
 			var ssid = uci.get('smartnetpilot', 'default', wifiOption(radio.slug, 'ssid'));
+			var encryption = uci.get('smartnetpilot', 'default', wifiOption(radio.slug, 'encryption'));
 			var key = uci.get('smartnetpilot', 'default', wifiOption(radio.slug, 'key'));
 			var channel = uci.get('smartnetpilot', 'default', wifiOption(radio.slug, 'channel'));
 			var htmode = uci.get('smartnetpilot', 'default', wifiOption(radio.slug, 'htmode'));
 
 			if (ssid && ssid !== radio.ssid)
+				return true;
+			if (encryption && encryption !== radio.encryption)
 				return true;
 			if (key && key !== radio.key)
 				return true;
