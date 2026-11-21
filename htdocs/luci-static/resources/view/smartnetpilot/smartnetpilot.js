@@ -1201,11 +1201,18 @@ return view.extend({
 		return modes.slice();
 	},
 
+	// The hero pills, the hidden tab menu items and the form panes all carry
+	// data-tab, so a bare query would find the hero button first and put the
+	// radio tabs there. The pane is the only div among them.
+	_wifiPane: function(root) {
+		return root.querySelector('.snp-form-shell div[data-tab="wifisetup"]');
+	},
+
 	// One tab per radio inside the wireless pane. The form's own tab menu is
 	// hidden, so these pills are the only radio switcher on the page.
 	_buildWifiTabs: function(root) {
 		var radios = this._wifiRadios || [];
-		var pane = root.querySelector('[data-tab="wifisetup"]');
+		var pane = this._wifiPane(root);
 
 		if (!pane || !radios.length)
 			return;
@@ -1263,7 +1270,7 @@ return view.extend({
 
 	_selectWifiRadio: function(root, slug) {
 		var radios = this._wifiRadios || [];
-		var pane = root.querySelector('[data-tab="wifisetup"]');
+		var pane = this._wifiPane(root);
 		var selected = null;
 
 		if (!pane || !radios.length)
