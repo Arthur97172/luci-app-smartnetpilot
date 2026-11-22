@@ -930,14 +930,31 @@ html.dark .snp-app,
 .snp-app input[type="text"],
 .snp-app input[type="password"],
 .snp-app input[type="number"],
-.snp-app select,
 .snp-app textarea {
 	max-width: 100%;
 	min-height: 38px;
 	padding: 0.48rem 0.65rem;
 	border: 1px solid var(--snp-input-border);
 	border-radius: 10px;
-	background: var(--snp-input-bg);
+	background-color: var(--snp-input-bg);
+	color: var(--snp-text);
+	font-family: inherit;
+	font-size: 0.83rem;
+	transition:
+		border-color 150ms ease,
+		box-shadow 150ms ease;
+}
+
+/* Keep the theme's dropdown chevron: only override the background colour, and
+   leave room for the arrow that Argon draws as a background image on the right
+   (a `background` shorthand here would erase it). */
+.snp-app select {
+	max-width: 100%;
+	min-height: 38px;
+	padding: 0.48rem 2.5rem 0.48rem 0.65rem;
+	border: 1px solid var(--snp-input-border);
+	border-radius: 10px;
+	background-color: var(--snp-input-bg);
 	color: var(--snp-text);
 	font-family: inherit;
 	font-size: 0.83rem;
