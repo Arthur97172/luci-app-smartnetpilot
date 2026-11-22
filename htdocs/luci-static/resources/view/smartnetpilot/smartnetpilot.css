@@ -910,6 +910,15 @@ html.dark .snp-app,
 	padding: 0.25rem 0 0;
 }
 
+/* The dissolved field box makes a dropdown widget a grid item, which stretches
+   it across the whole value column. Pin it to the theme's control width so it
+   matches the selects and text inputs at every breakpoint (Argon narrows that
+   width on smaller screens). */
+.snp-form-shell .cbi-value > .cbi-value-field > .cbi-dropdown {
+	width: var(--form-control-min-width, auto);
+	max-width: 100%;
+}
+
 .snp-form-shell .cbi-value-description,
 .snp-form-shell .cbi-value-field .cbi-value-description {
 	margin-top: 0.35rem;
